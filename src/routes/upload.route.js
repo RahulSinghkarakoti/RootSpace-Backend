@@ -14,6 +14,11 @@ router.get('/signature',
   ctrl.getSignature
 );
   
+router.post('/bills',
+  protect,
+  validate('saveBillFile'),
+  ctrl.saveBillFile
+);
  
 
 export default router;

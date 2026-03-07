@@ -151,10 +151,8 @@ model AuditLog {
 model Bills {
   id            BigInt      @id @default(autoincrement())
   userId        String     @map("user_id")
-
   source        BillSource
   status        BillStatus  @default(QUEUED)
-
   fileId        BigInt?     @unique @map("file_id")
 
   // searchable bill fields
@@ -170,19 +168,16 @@ model Bills {
   // worker locking
   workerId      String?     @map("worker_id")
   lockedAt      DateTime?   @map("locked_at")
-
+  
   // pipeline timestamps
   ocrStartedAt     DateTime? @map("ocr_started_at")
   ocrCompletedAt   DateTime? @map("ocr_completed_at")
   parsedAt         DateTime? @map("parsed_at")
   reviewedAt       DateTime? @map("reviewed_at")
-
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt      @map("updated_at")
-
   user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   file          BillFiles?  @relation(fields: [fileId], references: [id])
-
   ocr           BillOCR?
   parsed        BillParsed?
   final         BillFinal?
@@ -196,29 +191,21 @@ model Bills {
 
 model BillFiles {
   id           BigInt   @id @default(autoincrement())
-
   fileUrl      String   @map("file_url")
   cloudinaryId String?  @map("cloudinary_id")
-
   fileType     String   @map("file_type")
   fileSize     Int?     @map("file_size")
-
   createdAt    DateTime @default(now()) @map("created_at")
-
   bill         Bills?
-
   @@map("bill_files")
 }
 
 model BillOCR {
   id           BigInt   @id @default(autoincrement())
   billId       BigInt   @unique @map("bill_id")
-
   rawText      Json?    @map("raw_text")
   confidence   Float?   @map("confidence")
-
   processedAt  DateTime? @map("processed_at")
-
   bill         Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
 
   @@map("bill_ocr")
@@ -227,11 +214,8 @@ model BillOCR {
 model BillParsed {
   id          BigInt   @id @default(autoincrement())
   billId      BigInt   @unique @map("bill_id")
-
   parsedData  Json?
-
   parsedAt    DateTime? @map("parsed_at")
-
   bill        Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
 
   @@map("bill_parsed")
@@ -240,12 +224,9 @@ model BillParsed {
 model BillFinal {
   id          BigInt   @id @default(autoincrement())
   billId      BigInt   @unique @map("bill_id")
-
   finalData   Json?
-
   verifiedBy  BigInt?  @map("verified_by")
   verifiedAt  DateTime? @map("verified_at")
-
   bill        Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
 
   @@map("bill_final")
@@ -254,11 +235,9 @@ model BillFinal {
 model BillErrors {
   id        BigInt   @id @default(autoincrement())
   billId    BigInt   @map("bill_id")
-
   stage     String
   message   String
   meta      Json?
-
   createdAt DateTime @default(now())
 
   @@index([billId])

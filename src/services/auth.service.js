@@ -109,6 +109,7 @@ const login = async ({ email, password }, req, res) => {
 // ── Refresh ───────────────────────────────────────────────────────────────────
 
 const refreshTokens = async (rawToken, req) => {
+  console.log(rawToken)
   if (!rawToken) throw new AppError("Refresh token required", 400);
 
   const tokenHash = hashToken(rawToken);
