@@ -1,7 +1,5 @@
 import crypto from "crypto";
 import prisma from "../config/prisma.js";
-import { billQueue } from "../queues/ocrQueue.js";
-import logger from "../utils/logger.js";
 import AppError from "../utils/AppError.js";
 
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET;
@@ -68,49 +66,7 @@ const saveBillFile = async (
     throw error;
   }
 
-  try {
-    await billQueue.add(
-      "parse-bill",
-      { billId: billId.toString(), cloudinaryUrl, userId: req.user.id },
-      { jobId: `bill_${billId.toString()}` },
-    );
-  } catch (queueErr) {
-    await handleQueueFailure(billId, queueErr);
-    console.log(queueErr)
-    throw new AppError("Failed to enqueue OCR job. Please try again.", 500);
-  }
-
   return billId;
 };
-
-async function handleQueueFailure(billId, queueErr) {
-  const errMessage = queueErr?.message ?? "Unknown queue error";
- 
-  try {
-    await prisma.$transaction([
-      prisma.bills.update({
-        where: { id: billId },
-        data:  { status: 'FAILED', lastError: errMessage },
-      }),
-      prisma.billErrors.create({
-        data: {
-          billId:  billId,
-          stage:   'OCR_ENQUEUE',
-          message: errMessage,
-          meta:    {
-            queueName: 'bill-ocr',
-            timestamp: new Date().toISOString(),
-          },
-        },
-      }),
-    ]);
-  } catch (txErr) { 
-    console.log("[saveBillFile] CRITICAL: queue failure AND rollback transaction failed", {
-      billId: billId.toString(),
-      txErr: txErr?.message,
-      queueErr: errMessage,
-    });
-  }
-}
 
 export default { getCloudinaryUploadSignature, saveBillFile };

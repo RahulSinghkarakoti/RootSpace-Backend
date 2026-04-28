@@ -1,0 +1,47 @@
+services:
+  api-test:
+    build: .
+    command: npm test
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://postgres:password@test-db:5432/family_tree_test_db?schema=public
+      - JWT_ACCESS_SECRET=test_jwt_access_secret_64_chars_minimum_for_testing_purposes
+      - JWT_REFRESH_SECRET=test_jwt_refresh_secret_64_chars_minimum_for_testing_purposes
+      - JWT_ACCESS_EXPIRES=15m
+      - JWT_REFRESH_EXPIRES=7d
+      - GOOGLE_CLIENT_ID=test_google_client_id
+      - GOOGLE_CLIENT_SECRET=test_google_client_secret
+      - GOOGLE_CALLBACK_URL=http://localhost:5000/api/v1/auth/google/callback
+      - ALLOWED_ORIGINS=http://localhost:3000
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX=100
+      - AUTH_RATE_LIMIT_MAX=10
+      - APP_NAME=FamilyTreeAPITest
+      - CLIENT_URL=http://localhost:3000
+    depends_on:
+      - test-db
+    networks:
+      - family-tree-test-network
+
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=family_tree_test_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    networks:
+      - family-tree-test-network
+
+volumes:
+  test_postgres_data:
+
+networks:
+  family-tree-test-network:
+    driver: bridge

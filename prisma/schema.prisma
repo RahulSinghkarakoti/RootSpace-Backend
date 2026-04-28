@@ -22,22 +22,27 @@ enum OAuthProvider {
   FACEBOOK
 }
 
-enum BillStatus {
-  QUEUED
-  OCR_PROCESSING
-  OCR_COMPLETED
-  PARSING
-  PARSED
-  REVIEWING
-  SAVED
-  FAILED
+enum TreeType {
+  FAMILY
+  EDUCATIONAL
 }
 
-enum BillSource {
-  IMAGE
-  MANUAL
-  UPI_SHARE
-  PDF
+enum RelationType {
+  FATHER_OF
+  MOTHER_OF
+  CHILD_OF
+  HUSBAND_OF
+  WIFE_OF
+  PARTNER_OF
+  SIBLING_OF
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  BACHELORS
+  MASTERS
+  PHD
+  OTHER
 }
 
 // ── Models ───────────────────────────────────────────────────────────────────
@@ -45,7 +50,7 @@ enum BillSource {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String?  @map("password_hash")   // null for OAuth-only accounts
+  passwordHash String?  @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
   avatarUrl    String?  @map("avatar_url")
@@ -56,26 +61,145 @@ model User {
   updatedAt    DateTime @updatedAt      @map("updated_at")
 
   // Relations
-  oauthProviders    OAuthProviderRecord[]
-  refreshTokens     RefreshToken[]
+  oauthProviders     OAuthProviderRecord[]
+  refreshTokens      RefreshToken[]
   emailVerifications EmailVerification[]
-  passwordResets    PasswordReset[]
-  auditLogs         AuditLog[]
-  bills             Bills[]
+  passwordResets     PasswordReset[]
+  auditLogs          AuditLog[]
+  trees              Trees[]
 
   @@map("users")
 }
 
+model Trees {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  coverImage  String?  @map("cover_image")
+  memberCount Int?     @default(0) @map("member_count")
+  createdBy   String?  @map("created_by")
+  type        TreeType
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added missing back-relations
+  user        User?      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  persons     Person[]   @relation("TreePersons")
+  relations   Relation[] @relation("TreeRelations")
+  media       Media[]    @relation("TreeMedia")
+
+  @@index([slug])
+  @@index([createdBy])
+  @@index([name])
+  @@map("trees")
+}
+
+model Person {
+  id        String      @id @default(uuid())
+  slug      String
+  fullName  String
+  gender    String?
+  birthDate DateTime?
+  deathDate DateTime?
+  treeId    Int         @map("tree_id")  // FIXED: Int to match Trees.id
+  notes     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt      @map("updated_at")
+
+  // Relations
+  tree              Trees           @relation("TreePersons", fields: [treeId], references: [id], onDelete: Cascade)
+  educationTimeline EducationEntry[]
+  gallery           Media[]         @relation("PersonMedia")
+  relationsFrom     Relation[]      @relation("FromPerson")
+  relationsTo       Relation[]      @relation("ToPerson")
+
+  @@unique([treeId, slug])
+  @@index([treeId])
+  @@index([fullName])
+  @@index([birthDate])
+  @@map("persons")
+}
+
+model EducationEntry {
+  id          String   @id @default(uuid())
+  personId    String   @map("person_id")
+  title       String
+  institution String
+  level       EducationLevel
+  startDate   DateTime?
+  endDate     DateTime?
+  description String?
+  degreeUrl   String?  @map("degree_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([startDate])
+  @@index([institution])
+  @@map("education_entries")
+}
+
+model Media {
+  id          String   @id @default(uuid())
+  personId    String?  @map("person_id")
+  treeId      Int?     @map("tree_id")     // FIXED: Int to match Trees.id
+  url         String
+  altText     String?  @map("alt_text")
+  caption     String?
+  type        String   // "PHOTO", "VIDEO", "DOCUMENT"
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added relation names
+  person Person? @relation("PersonMedia", fields: [personId], references: [id], onDelete: Cascade)
+  tree   Trees?  @relation("TreeMedia", fields: [treeId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([treeId])
+  @@index([order])
+  @@map("media")
+}
+
+model Relation {
+  id          String      @id @default(uuid())
+  treeId      Int         @map("tree_id")      // FIXED: Int to match Trees.id
+  fromId      String      @map("from_id")
+  toId        String      @map("to_id")
+  type        RelationType
+  metadata    Json?       
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added relation names
+  tree        Trees       @relation("TreeRelations", fields: [treeId], references: [id], onDelete: Cascade)
+  fromPerson  Person      @relation("FromPerson", fields: [fromId], references: [id], onDelete: Cascade)
+  toPerson    Person      @relation("ToPerson", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([treeId, fromId, toId, type])
+  @@index([treeId, fromId])
+  @@index([treeId, toId])
+  @@index([type])
+  @@map("relations")
+}
+
+// ── Auth Models (unchanged) ─────────────────────────────────────────────────
+
 model OAuthProviderRecord {
-  id           Int           @id @default(autoincrement())
-  userId       String        @map("user_id")
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id")
   provider     OAuthProvider
-  providerId   String        @map("provider_id")
-  accessToken  String?       @map("access_token")
-  refreshToken String?       @map("refresh_token")
-  tokenExpires DateTime?     @map("token_expires")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt      @map("updated_at")
+  providerId   String   @map("provider_id")
+  accessToken  String?  @map("access_token")
+  refreshToken String?  @map("refresh_token")
+  tokenExpires DateTime? @map("token_expires")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -84,15 +208,15 @@ model OAuthProviderRecord {
 }
 
 model RefreshToken {
-  id         Int       @id @default(autoincrement())
-  userId     String    @map("user_id")
-  tokenHash  String    @unique @map("token_hash")  // SHA-256 hash of raw token
-  deviceInfo String?   @map("device_info")
-  ipAddress  String?   @map("ip_address")
-  expiresAt  DateTime  @map("expires_at")
-  revoked    Boolean   @default(false)
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  deviceInfo String?  @map("device_info")
+  ipAddress  String?  @map("ip_address")
+  expiresAt  DateTime @map("expires_at")
+  revoked    Boolean  @default(false)
   revokedAt  DateTime? @map("revoked_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -146,100 +270,4 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
-}
-
-model Bills {
-  id            BigInt      @id @default(autoincrement())
-  userId        String     @map("user_id")
-  source        BillSource
-  status        BillStatus  @default(QUEUED)
-  fileId        BigInt?     @unique @map("file_id")
-
-  // searchable bill fields
-  merchantName  String?     @map("merchant_name")
-  totalAmount   Float?      @map("total_amount")
-  billDate      DateTime?   @map("bill_date")
-  currency      String?     @map("currency")
-
-  // retry system
-  retryCount    Int         @default(0) @map("retry_count")
-  lastError     String?     @map("last_error")
-
-  // worker locking
-  workerId      String?     @map("worker_id")
-  lockedAt      DateTime?   @map("locked_at")
-  
-  // pipeline timestamps
-  ocrStartedAt     DateTime? @map("ocr_started_at")
-  ocrCompletedAt   DateTime? @map("ocr_completed_at")
-  parsedAt         DateTime? @map("parsed_at")
-  reviewedAt       DateTime? @map("reviewed_at")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt      @map("updated_at")
-  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  file          BillFiles?  @relation(fields: [fileId], references: [id])
-  ocr           BillOCR?
-  parsed        BillParsed?
-  final         BillFinal?
-
-  @@index([status])
-  @@index([status, createdAt])
-  @@index([userId])
-  @@index([merchantName])
-  @@map("bills")
-}
-
-model BillFiles {
-  id           BigInt   @id @default(autoincrement())
-  fileUrl      String   @map("file_url")
-  cloudinaryId String?  @map("cloudinary_id")
-  fileType     String   @map("file_type")
-  fileSize     Int?     @map("file_size")
-  createdAt    DateTime @default(now()) @map("created_at")
-  bill         Bills?
-  @@map("bill_files")
-}
-
-model BillOCR {
-  id           BigInt   @id @default(autoincrement())
-  billId       BigInt   @unique @map("bill_id")
-  rawText      Json?    @map("raw_text")
-  confidence   Float?   @map("confidence")
-  processedAt  DateTime? @map("processed_at")
-  bill         Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
-
-  @@map("bill_ocr")
-}
-
-model BillParsed {
-  id          BigInt   @id @default(autoincrement())
-  billId      BigInt   @unique @map("bill_id")
-  parsedData  Json?
-  parsedAt    DateTime? @map("parsed_at")
-  bill        Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
-
-  @@map("bill_parsed")
-}
-
-model BillFinal {
-  id          BigInt   @id @default(autoincrement())
-  billId      BigInt   @unique @map("bill_id")
-  finalData   Json?
-  verifiedBy  BigInt?  @map("verified_by")
-  verifiedAt  DateTime? @map("verified_at")
-  bill        Bills @relation(fields: [billId], references: [id], onDelete: Cascade)
-
-  @@map("bill_final")
-}
-
-model BillErrors {
-  id        BigInt   @id @default(autoincrement())
-  billId    BigInt   @map("bill_id")
-  stage     String
-  message   String
-  meta      Json?
-  createdAt DateTime @default(now())
-
-  @@index([billId])
-  @@map("bill_errors")
 }

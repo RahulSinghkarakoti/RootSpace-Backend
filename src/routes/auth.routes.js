@@ -27,7 +27,7 @@ router.post('/login',
 // Public — but rate-limited. Body: { refreshToken }
 router.post('/refresh',
   authLimiter,
-  validate('refreshToken'),
+  // validate('refreshToken'),
   ctrl.refreshToken
 );
 

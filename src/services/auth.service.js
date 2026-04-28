@@ -2,10 +2,11 @@
 import bcrypt from "bcryptjs";
 import prisma from "../config/prisma.js";
 import {
+  getAccessTokenExpiry,
+  getRefreshTokenExpiry,
   generateAccessToken,
   generateRefreshToken,
   hashToken,
-  refreshTokenExpiresAt,
 } from "../utils/token.js";
 import AppError from "../utils/AppError.js";
 import { audit } from "../utils/audit.js";
@@ -28,23 +29,27 @@ const issueTokenPair = async (user, { ipAddress, deviceInfo } = {}) => {
   const accessToken = generateAccessToken(user);
   const rawRefresh = generateRefreshToken();
   const refreshToken = rawRefresh; // send raw to client
+  
+  
+  const refreshExpiresAt = getRefreshTokenExpiry(); // returns Date
+  const accessExpiresAt =  new Date(getAccessTokenExpiry()).getTime();
 
   await prisma.refreshToken.create({
     data: {
       userId: user.id,
       tokenHash: hashToken(rawRefresh),
-      expiresAt: refreshTokenExpiresAt(),
+      expiresAt: refreshExpiresAt,
       ipAddress: ipAddress || null,
       deviceInfo: deviceInfo || null,
     },
   });
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, expiresAt: accessExpiresAt };
 };
 
 // ── Register ─────────────────────────────────────────────────────────────────
 
-const register = async ({ firstName, lastName, email, password }, req) => {
+const register = async ({ firstName, lastName, email, password }, req,res) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new AppError("Email is already registered", 409);
 
@@ -67,7 +72,20 @@ const register = async ({ firstName, lastName, email, password }, req) => {
     deviceInfo: req.headers["user-agent"],
   });
 
-  return { user: sanitizeUser(user), ...tokens };
+  res.cookie("refreshToken", tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // don't force true in dev
+    sameSite: "lax", // or "lax" depending on your flow
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
+  });
+
+ const { refreshToken, ...safeTokens } = tokens;
+
+  return {
+    user: sanitizeUser(user),
+    tokens:safeTokens,
+  };
+ 
 };
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -97,21 +115,27 @@ const login = async ({ email, password }, req, res) => {
     deviceInfo: req.headers["user-agent"],
   });
 
-  res.cookie("accessToken", tokens.accessToken, {
+  res.cookie("refreshToken", tokens.refreshToken, {
     httpOnly: true,
-    secure: true,
-    maxAge: 1 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === "production", // don't force true in dev
+    sameSite: "lax", // or "lax" depending on your flow
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
   });
 
-  return { user: sanitizeUser(user), ...tokens };
+ const { refreshToken, ...safeTokens } = tokens;
+
+  return {
+    user: sanitizeUser(user),
+        tokens:safeTokens,
+  };
 };
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
 
-const refreshTokens = async (rawToken, req) => {
-  console.log(rawToken)
-  if (!rawToken) throw new AppError("Refresh token required", 400);
+const refreshTokens = async ( rawToken,req) => {
 
+  if (!rawToken) throw new AppError("Refresh token required", 400);
+  
   const tokenHash = hashToken(rawToken);
 
   const stored = await prisma.refreshToken.findUnique({
@@ -136,7 +160,11 @@ const refreshTokens = async (rawToken, req) => {
     deviceInfo: req.headers["user-agent"],
   });
 
-  return { user: sanitizeUser(stored.user), ...tokens };
+ 
+  return {
+    user: sanitizeUser(stored.user),
+    ...tokens,
+  };
 };
 
 // ── Logout ────────────────────────────────────────────────────────────────────
