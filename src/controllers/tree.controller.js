@@ -41,5 +41,6 @@ export default {
     getAllTrees,
     deleteTree,
     getTreeBySlug,
+    getTreeById,
     updateTree
 }
