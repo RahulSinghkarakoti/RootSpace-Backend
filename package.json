@@ -1,12 +1,20 @@
 {
-  "name": "hisab-server",
+  "name": "backend-server-rahul-karakoti",
   "version": "1.0.0",
   "description": "Production-ready Express Auth Server — JWT, OAuth2, Prisma + PostgreSQL",
   "main": "src/app.js",
   "type": "module",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon  src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ci": "npm run lint && npm test",
+    "test:docker": "docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f api",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -14,12 +22,9 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@bull-board/api": "^6.20.3",
-    "@bull-board/express": "^6.20.3",
     "@prisma/client": "^7.4.1",
     "@prisma/config": "^7.4.1",
     "bcryptjs": "^2.4.3",
-    "bullmq": "^5.70.4",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -28,12 +33,12 @@
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
-    "ioredis": "^5.10.0",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "slugify": "^1.6.9",
     "uuid": "^9.0.0",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1"
@@ -46,7 +51,9 @@
     "nodemon": "^3.0.2",
     "npm": "^11.10.1",
     "pg": "^8.18.0",
-    "prisma": "^7.4.1"
+    "prisma": "^7.4.1",
+    "supertest": "^6.3.3",
+    "vitest": "^1.4.4"
   },
   "engines": {
     "node": ">=18.0.0"

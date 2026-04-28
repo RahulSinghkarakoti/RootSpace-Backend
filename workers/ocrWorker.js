@@ -16,10 +16,13 @@ const worker = new Worker(
       }
     });
 
-console.log(bill)
-
+    console.log(bill)
+    console.log('--------------------------')
+    
+    
     if (!bill) throw new Error("Bill not found");
-
+    
+    // console.log(processOCR(bill.file))
     // simulate OCR
     const text = "-------Sample OCR text-------";
 
@@ -48,3 +51,6 @@ worker.on("completed", (job) => {
 worker.on("failed", (job, err) => {
   console.log("Job failed", err);
 });
+
+
+ 

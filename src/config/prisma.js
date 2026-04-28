@@ -1,9 +1,9 @@
 // src/config/prisma.js
 // Singleton Prisma client — avoids exhausting connection pool in dev hot-reload
 
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg; 
 import logger from '../utils/logger.js';
-
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 

@@ -1,0 +1,129 @@
+name: CI Pipeline - Tests & Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: family_tree_test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+
+      - name: Run Database Migrations
+        run: npm run prisma:deploy
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/family_tree_test_db?schema=public
+
+      - name: Run Linting
+        run: npm run lint
+
+      - name: Run Tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/family_tree_test_db?schema=public
+          JWT_ACCESS_SECRET: test_jwt_access_secret_64_chars_minimum_for_testing_purposes_ci_pipeline
+          JWT_REFRESH_SECRET: test_jwt_refresh_secret_64_chars_minimum_for_testing_purposes_ci_pipeline
+          JWT_ACCESS_EXPIRES: 15m
+          JWT_REFRESH_EXPIRES: 7d
+          GOOGLE_CLIENT_ID: test_google_client_id_ci
+          GOOGLE_CLIENT_SECRET: test_google_client_secret_ci
+          GOOGLE_CALLBACK_URL: http://localhost:5000/api/v1/auth/google/callback
+          ALLOWED_ORIGINS: http://localhost:3000
+          RATE_LIMIT_WINDOW_MS: 900000
+          RATE_LIMIT_MAX: 100
+          AUTH_RATE_LIMIT_MAX: 10
+          APP_NAME: FamilyTreeAPITest
+          CLIENT_URL: http://localhost:3000
+
+  docker-test:
+    name: Docker Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: family-tree-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Tests in Docker
+        run: |
+          docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test
+        env:
+          DOCKER_BUILDKIT: 1
+
+  security-check:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Security Audit
+        run: npm audit --audit-level moderate
+        continue-on-error: true
+
+      - name: Run npm-check for outdated packages
+        run: npx npm-check --skip-unused
+        continue-on-error: true

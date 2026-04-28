@@ -41,8 +41,18 @@ const verifyAccessToken = (token) =>
 /**
  * Compute refresh token expiry date from env string like "7d".
  */
-const refreshTokenExpiresAt = () => {
+const getRefreshTokenExpiry = () => {
   const raw = process.env.JWT_REFRESH_EXPIRES || '7d';
+  const unit  = raw.slice(-1);
+  const value = parseInt(raw);
+  const ms = unit === 'd' ? value * 86400000
+            : unit === 'h' ? value * 3600000
+            : unit === 'm' ? value * 60000
+            : value * 1000;
+  return new Date(Date.now() + ms);
+};
+const getAccessTokenExpiry = () => {
+  const raw = process.env.JWT_ACCESS_EXPIRES || '7d';
   const unit  = raw.slice(-1);
   const value = parseInt(raw);
   const ms = unit === 'd' ? value * 86400000
@@ -57,5 +67,6 @@ export  {
   generateRefreshToken,
   hashToken,
   verifyAccessToken,
-  refreshTokenExpiresAt,
+  getRefreshTokenExpiry,
+  getAccessTokenExpiry
 };

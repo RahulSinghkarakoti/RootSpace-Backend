@@ -17,29 +17,10 @@ import routes from './routes/index.js';
 import prisma from './config/prisma.js';
 import initPassport from './config/passport.js';
 
-
-import { createBullBoard } from "@bull-board/api";
-import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
-import { ExpressAdapter } from "@bull-board/express";
-import { billQueue } from './queues/ocrQueue.js';
-
 const app = express();
-
-
-const serverAdapter = new ExpressAdapter();
-serverAdapter.setBasePath("/admin/queues");
-
-createBullBoard({
-  queues: [new BullMQAdapter(billQueue)],
-  serverAdapter
-});
-
 
 // ── Trust proxy (required behind Nginx / load balancer) ──────────────────────
 app.set('trust proxy', 1);
-
-// set up bullmq dashboard
-app.use("/admin/queues", serverAdapter.getRouter());
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet());
 

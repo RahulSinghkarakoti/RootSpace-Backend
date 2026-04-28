@@ -1,0 +1,16 @@
+node_modules
+logs
+npm-debug.log
+.git
+.env
+.env.local
+.env.*.local
+coverage
+.nyc_output
+.vscode
+.DS_Store
+*.log
+test-results/
+playwright-report/
+playwright/.cache/
+

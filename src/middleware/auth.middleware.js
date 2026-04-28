@@ -10,7 +10,7 @@ import logger from "../utils/logger.js";
  */
 const protect = async (req, res, next) => {
   try {
-    const header = req.headers.authorization;
+    const header = req.headers.authorization; 
     let token = null;
     if (header && header.startsWith("Bearer ")) {
       token = header.split(" ")[1];
