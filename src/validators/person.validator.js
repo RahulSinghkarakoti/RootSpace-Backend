@@ -3,16 +3,33 @@ import Joi from "joi";
 const schemas = {
   createPerson: Joi.object({
     fullName: Joi.string().trim().min(1).max(255).required(),
+    birthPlace: Joi.string().trim().min(1).max(255).allow("").optional(),
     gender: Joi.string().trim().max(50).optional().allow(null, ""),
-    birthDate: Joi.date().iso().optional().allow(null),
-    deathDate: Joi.date().iso().optional().allow(null),
+    birthDate: Joi.date().optional().allow(null),
+    deathDate: Joi.date().optional().allow(null),
     notes: Joi.string().trim().max(1000).optional().allow(null, ""),
+    relations: Joi.array()
+      .items(
+        Joi.object({
+          toId: Joi.string().uuid().required(),
+          type: Joi.string()
+            .valid(
+              "PARENT_OF",
+              "SPOUSE_OF",
+              "SIBLING_OF",
+            )
+            .required(),
+          metadata: Joi.object().optional(),
+          isActive: Joi.bool().optional(),
+        }),
+      )
+      .optional(),
   }).custom((value, helpers) => {
     if (value.birthDate && value.deathDate) {
       const birth = new Date(value.birthDate);
       const death = new Date(value.deathDate);
-      if (death < birth) {
-        return helpers.message('deathDate must be the same or after birthDate');
+      if (death  && birth && death < birth) {
+        return helpers.message("deathDate must be the same or after birthDate");
       }
     }
     return value;
@@ -21,8 +38,8 @@ const schemas = {
   updatePerson: Joi.object({
     fullName: Joi.string().trim().min(1).max(255).optional(),
     gender: Joi.string().trim().max(50).optional().allow(null, ""),
-    birthDate: Joi.date().iso().optional().allow(null),
-    deathDate: Joi.date().iso().optional().allow(null),
+    birthDate: Joi.date().optional().allow(null),
+    deathDate: Joi.date().optional().allow(null),
     notes: Joi.string().trim().max(1000).optional().allow(null, ""),
   })
     .or("fullName", "gender", "birthDate", "deathDate", "notes")
@@ -31,7 +48,9 @@ const schemas = {
         const birth = new Date(value.birthDate);
         const death = new Date(value.deathDate);
         if (death < birth) {
-          return helpers.message('deathDate must be the same or after birthDate');
+          return helpers.message(
+            "deathDate must be the same or after birthDate",
+          );
         }
       }
       return value;

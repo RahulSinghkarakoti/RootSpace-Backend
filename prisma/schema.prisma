@@ -28,13 +28,8 @@ enum TreeType {
 }
 
 enum RelationType {
-  FATHER_OF
-  MOTHER_OF
-  CHILD_OF
-  HUSBAND_OF
-  WIFE_OF
-  PARTNER_OF
-  SIBLING_OF
+  PARENT_OF 
+  SPOUSE_OF
 }
 
 enum EducationLevel {
@@ -100,12 +95,15 @@ model Person {
   slug      String
   fullName  String
   gender    String?
+  avatarUrl String?
+
   birthDate DateTime?
   deathDate DateTime?
+  birthPlace String?    @map("birth_place")
   treeId    Int         @map("tree_id")  // FIXED: Int to match Trees.id
   notes     String?
   createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt      @map("updated_at")
+  updatedAt DateTime    @updatedAt      @map("updated_at") 
 
   // Relations
   tree              Trees           @relation("TreePersons", fields: [treeId], references: [id], onDelete: Cascade)
@@ -113,12 +111,28 @@ model Person {
   gallery           Media[]         @relation("PersonMedia")
   relationsFrom     Relation[]      @relation("FromPerson")
   relationsTo       Relation[]      @relation("ToPerson")
+  layout    PersonLayout?
 
   @@unique([treeId, slug])
   @@index([treeId])
   @@index([fullName])
   @@index([birthDate])
   @@map("persons")
+}
+
+model PersonLayout {
+  id       String @id @default(uuid())
+  personId String @unique  @map("person_id")
+  treeId   Int  @map("tree_id")
+
+  x Float
+  y Float
+  width Float?
+  height Float?
+
+  person Person @relation(fields:[personId], references:[id])
+  @@map("person_layout")
+
 }
 
 model EducationEntry {

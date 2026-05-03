@@ -23,12 +23,22 @@ const parseTreeId = (value) => {
   return id;
 };
 
+const getReverseRelationType = (type) => {
+  const reverseMap = {
+    PARENT_OF: 'PARENT_OF',
+    SPOUSE_OF: 'SPOUSE_OF',
+    SIBLING_OF: 'SIBLING_OF',
+  };
+  return reverseMap[type] || type;
+};
+
 const buildCreatePayload = (input) => ({
   fullName: input.fullName,
   gender: input.gender || null,
   birthDate: input.birthDate ? new Date(input.birthDate) : null,
   deathDate: input.deathDate ? new Date(input.deathDate) : null,
   notes: input.notes || null,
+  birthPlace: input.birthPlace || null,
 });
 
 const buildUpdatePayload = (input) => {
@@ -38,6 +48,7 @@ const buildUpdatePayload = (input) => {
   if (Object.prototype.hasOwnProperty.call(input, 'birthDate')) payload.birthDate = input.birthDate ? new Date(input.birthDate) : null;
   if (Object.prototype.hasOwnProperty.call(input, 'deathDate')) payload.deathDate = input.deathDate ? new Date(input.deathDate) : null;
   if (Object.prototype.hasOwnProperty.call(input, 'notes')) payload.notes = input.notes || null;
+  if (Object.prototype.hasOwnProperty.call(input, 'birthPlace')) payload.birthPlace = input.birthPlace || null;
   return payload;
 };
 
@@ -45,14 +56,163 @@ const createPerson = async (treeId, input, req) => {
   const parsedTreeId = parseTreeId(treeId);
   await ensureTreeOwnership(parsedTreeId, req.user.id);
 
-  const slug = await generateUniquePersonSlug(parsedTreeId, input.fullName);
+  // ── Validate relation targets BEFORE creating anything ──────────────────
+  if (input.relations?.length > 0) {
+    const toIds = [...new Set(input.relations.map(r => r.toId))];
 
-  const person = await prisma.person.create({
-    data: {
-      treeId: parsedTreeId,
-      slug,
-      ...buildCreatePayload(input),
-    },
+    const existingPersons = await prisma.person.findMany({
+      where: { id: { in: toIds }, treeId: parsedTreeId },
+      select: { id: true },
+    });
+
+    const existingIds = new Set(existingPersons.map(p => p.id));
+    const invalidIds = toIds.filter(id => !existingIds.has(id));
+
+    if (invalidIds.length > 0) {
+      throw new AppError(`Invalid relation targets: ${invalidIds.join(', ')}`, 400);
+    }
+  }
+
+  // ── Run everything in a transaction ─────────────────────────────────────
+  const person = await prisma.$transaction(async (tx) => {
+    const slug = await generateUniquePersonSlug(parsedTreeId, input.fullName);
+
+    const newPerson = await tx.person.create({
+      data: {
+        treeId: parsedTreeId,
+        slug,
+        ...buildCreatePayload(input),
+      },
+    });
+
+    if (!input.relations?.length) return newPerson;
+
+    // ── Build relation pairs ─────────────────────────────────────────────
+    // Use a Map keyed by "fromId|toId|type" to prevent duplicates
+    const relMap = new Map();
+
+    const addRel = (fromId, toId, type, metadata = null, isActive = true) => {
+      // SPOUSE_OF: always store canonical direction (sorted) to avoid duplicates
+      // PARENT_OF: directed, no reverse needed
+      if (type === 'SPOUSE_OF') {
+        const [a, b] = [fromId, toId].sort();
+        const key = `${a}|${b}|SPOUSE_OF`;
+        if (!relMap.has(key)) {
+          relMap.set(key, {
+            treeId: parsedTreeId,
+            fromId: a,
+            toId: b,
+            type: 'SPOUSE_OF',
+            metadata,
+            isActive,
+          });
+        }
+      } else if (type === 'PARENT_OF') {
+        const key = `${fromId}|${toId}|PARENT_OF`;
+        if (!relMap.has(key)) {
+          relMap.set(key, {
+            treeId: parsedTreeId,
+            fromId,
+            toId,
+            type: 'PARENT_OF',
+            metadata,
+            isActive,
+          });
+        }
+      }
+    };
+
+    // ── Process explicit relations from input ────────────────────────────
+    for (const rel of input.relations) {
+      const meta = rel.metadata ?? null;
+      const active = rel.isActive ?? true;
+
+      if (rel.type === 'SPOUSE_OF') {
+        // new person ↔ existing person (symmetric, one record)
+        addRel(newPerson.id, rel.toId, 'SPOUSE_OF', meta, active);
+
+      } else if (rel.type === 'PARENT_OF') {
+        // rel.toId is the PARENT, new person is the CHILD
+        // So: parent -> newPerson
+        addRel(rel.toId, newPerson.id, 'PARENT_OF', meta, active);
+
+      } else if (rel.type === 'CHILD_OF') {
+        // new person is the PARENT, rel.toId is the CHILD
+        // So: newPerson -> child
+        addRel(newPerson.id, rel.toId, 'PARENT_OF', meta, active);
+      }
+    }
+
+    // ── Auto-link: if new person is a child of some parents,
+    //    also link the spouses of those parents as co-parents ─────────────
+    const parentOfNewPerson = input.relations
+      .filter(r => r.type === 'PARENT_OF')  // toId = parent
+      .map(r => r.toId);
+
+    if (parentOfNewPerson.length > 0) {
+      // Find existing SPOUSE_OF relations for these parents
+      const spouseRels = await tx.relation.findMany({
+        where: {
+          treeId: parsedTreeId,
+          type: 'SPOUSE_OF',
+          OR: [
+            { fromId: { in: parentOfNewPerson } },
+            { toId: { in: parentOfNewPerson } },
+          ],
+        },
+        select: { fromId: true, toId: true },
+      });
+
+      const parentSet = new Set(parentOfNewPerson);
+
+      for (const spouseRel of spouseRels) {
+        // Resolve which side is the co-parent (the one NOT in our parent list)
+        const coParentId = parentSet.has(spouseRel.fromId)
+          ? spouseRel.toId
+          : spouseRel.fromId;
+
+        // Only add if not already explicitly related
+        const alreadyExplicit = input.relations.some(r => r.toId === coParentId);
+        if (!alreadyExplicit) {
+          addRel(coParentId, newPerson.id, 'PARENT_OF');
+        }
+      }
+    }
+
+    // ── Also handle: if new person is a SPOUSE, 
+    //    inherit their spouse's children as own children ──────────────────
+    const spouseRelations = input.relations.filter(r => r.type === 'SPOUSE_OF');
+
+    if (spouseRelations.length > 0) {
+      const spouseIds = spouseRelations.map(r => r.toId);
+
+      // Find children of the spouse(s)
+      const spouseChildren = await tx.relation.findMany({
+        where: {
+          treeId: parsedTreeId,
+          type: 'PARENT_OF',
+          fromId: { in: spouseIds },
+        },
+        select: { toId: true },  // toId = child
+      });
+
+      for (const { toId: childId } of spouseChildren) {
+        addRel(newPerson.id, childId, 'PARENT_OF');
+      }
+    }
+
+    // ── Insert all relations (skipDuplicates as safety net) ───────────────
+    const relationsData = [...relMap.values()];
+
+    if (relationsData.length > 0) {
+      console.log(`Creating ${relationsData.length} relations for person ${newPerson.id}`);
+      await tx.relation.createMany({
+        data: relationsData,
+        skipDuplicates: true,  // safety net for race conditions
+      });
+    }
+
+    return newPerson;
   });
 
   return person;

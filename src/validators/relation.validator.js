@@ -6,12 +6,8 @@ const schemas = {
     toId: Joi.string().uuid().required(),
     type: Joi.string()
       .valid(
-        "FATHER_OF",
-        "MOTHER_OF",
-        "CHILD_OF",
-        "HUSBAND_OF",
-        "WIFE_OF",
-        "PARTNER_OF",
+        "PARENT_OF",
+        "SPOUSE_OF",
         "SIBLING_OF",
       )
       .required(),
@@ -28,12 +24,8 @@ const schemas = {
     fromId: Joi.string().uuid().optional(),
     toId: Joi.string().uuid().optional(),
     type: Joi.string().valid(
-      "FATHER_OF",
-      "MOTHER_OF",
-      "CHILD_OF",
-      "HUSBAND_OF",
-      "WIFE_OF",
-      "PARTNER_OF",
+      "PARENT_OF",
+      "SPOUSE_OF",
       "SIBLING_OF",
     ),
     metadata: Joi.object().optional(),
