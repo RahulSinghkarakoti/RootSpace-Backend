@@ -180,26 +180,7 @@ const createPerson = async (treeId, input, req) => {
     }
 
     // ── Also handle: if new person is a SPOUSE, 
-    //    inherit their spouse's children as own children ──────────────────
-    const spouseRelations = input.relations.filter(r => r.type === 'SPOUSE_OF');
-
-    if (spouseRelations.length > 0) {
-      const spouseIds = spouseRelations.map(r => r.toId);
-
-      // Find children of the spouse(s)
-      const spouseChildren = await tx.relation.findMany({
-        where: {
-          treeId: parsedTreeId,
-          type: 'PARENT_OF',
-          fromId: { in: spouseIds },
-        },
-        select: { toId: true },  // toId = child
-      });
-
-      for (const { toId: childId } of spouseChildren) {
-        addRel(newPerson.id, childId, 'PARENT_OF');
-      }
-    }
+   
 
     // ── Insert all relations (skipDuplicates as safety net) ───────────────
     const relationsData = [...relMap.values()];

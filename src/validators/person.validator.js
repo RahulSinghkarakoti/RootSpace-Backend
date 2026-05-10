@@ -16,7 +16,7 @@ const schemas = {
             .valid(
               "PARENT_OF",
               "SPOUSE_OF",
-              "SIBLING_OF",
+              "CHILD_OF",
             )
             .required(),
           metadata: Joi.object().optional(),
