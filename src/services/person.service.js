@@ -143,44 +143,191 @@ const createPerson = async (treeId, input, req) => {
       }
     }
 
-    // ── Auto-link: if new person is a child of some parents,
-    //    also link the spouses of those parents as co-parents ─────────────
+    // ── Auto-link: if new person is added as CHILD of a parent,
+    //    ensure child has 2 parents by auto-creating unknown spouse ───────
     const parentOfNewPerson = input.relations
-      .filter(r => r.type === 'PARENT_OF')  // toId = parent
+      .filter(r => r.type === 'PARENT_OF') // toId = parent
       .map(r => r.toId);
 
     if (parentOfNewPerson.length > 0) {
-      // Find existing SPOUSE_OF relations for these parents
-      const spouseRels = await tx.relation.findMany({
-        where: {
-          treeId: parsedTreeId,
-          type: 'SPOUSE_OF',
-          OR: [
-            { fromId: { in: parentOfNewPerson } },
-            { toId: { in: parentOfNewPerson } },
-          ],
-        },
-        select: { fromId: true, toId: true },
-      });
 
-      const parentSet = new Set(parentOfNewPerson);
+      for (const parentId of parentOfNewPerson) {
 
-      for (const spouseRel of spouseRels) {
-        // Resolve which side is the co-parent (the one NOT in our parent list)
-        const coParentId = parentSet.has(spouseRel.fromId)
-          ? spouseRel.toId
-          : spouseRel.fromId;
+        // Find spouse of this parent
+        const spouseRel = await tx.relation.findFirst({
+          where: {
+            treeId: parsedTreeId,
+            type: 'SPOUSE_OF',
+            OR: [
+              { fromId: parentId },
+              { toId: parentId },
+            ],
+          },
+        });
 
-        // Only add if not already explicitly related
-        const alreadyExplicit = input.relations.some(r => r.toId === coParentId);
-        if (!alreadyExplicit) {
-          addRel(coParentId, newPerson.id, 'PARENT_OF');
+        let secondParentId = null;
+
+        // Existing spouse found
+        if (spouseRel) {
+
+          secondParentId =
+            spouseRel.fromId === parentId
+              ? spouseRel.toId
+              : spouseRel.fromId;
+
+        } else {
+
+          // ── No spouse exists → create unknown spouse ───────────────────
+          const parent = await tx.person.findUnique({
+            where: { id: parentId },
+            select: {
+              id: true,
+              gender: true,
+              fullName: true,
+            },
+          });
+
+          const unknownSlug = await generateUniquePersonSlug(
+            parsedTreeId,
+            'Unknown'
+          );
+
+          const unknownSpouse = await tx.person.create({
+            data: {
+              treeId: parsedTreeId,
+              slug: unknownSlug,
+              fullName: 'Unknown',
+              gender:
+                parent?.gender === 'male'
+                  ? 'female'
+                  : parent?.gender === 'female'
+                    ? 'male'
+                    : 'unknown',
+            },
+          });
+
+          secondParentId = unknownSpouse.id;
+
+          // Connect parent ↔ unknown spouse
+          addRel(parentId, unknownSpouse.id, 'SPOUSE_OF');
+        }
+
+        // Connect second parent → new child
+        if (secondParentId) {
+
+          const alreadyLinked = await tx.relation.findFirst({
+            where: {
+              treeId: parsedTreeId,
+              type: 'PARENT_OF',
+              fromId: secondParentId,
+              toId: newPerson.id,
+            },
+          });
+
+          if (!alreadyLinked) {
+            addRel(secondParentId, newPerson.id, 'PARENT_OF');
+          }
         }
       }
     }
 
-    // ── Also handle: if new person is a SPOUSE, 
-   
+    // ── If new person is added as SPOUSE_OF,
+    //    inherit existing children of spouse ───────────────────────────────
+    const spouseTargets = input.relations
+      .filter(r => r.type === 'SPOUSE_OF')
+      .map(r => r.toId);
+
+    if (spouseTargets.length > 0) {
+
+      for (const spouseId of spouseTargets) {
+
+        // Find all children of existing spouse
+        const existingChildren = await tx.relation.findMany({
+          where: {
+            treeId: parsedTreeId,
+            type: 'PARENT_OF',
+            fromId: spouseId,
+          },
+          select: {
+            toId: true,
+          },
+        });
+
+        for (const childRel of existingChildren) {
+
+          // Check whether new spouse already linked
+          const alreadyLinked = await tx.relation.findFirst({
+            where: {
+              treeId: parsedTreeId,
+              type: 'PARENT_OF',
+              fromId: newPerson.id,
+              toId: childRel.toId,
+            },
+          });
+
+          // If not linked → make new spouse also parent
+          if (!alreadyLinked) {
+            addRel(newPerson.id, childRel.toId, 'PARENT_OF');
+          }
+        }
+
+        // OPTIONAL:
+        // remove "Unknown Spouse" if one exists
+
+        const unknownSpouseRel = await tx.relation.findFirst({
+          where: {
+            treeId: parsedTreeId,
+            type: 'SPOUSE_OF',
+            OR: [
+              { fromId: spouseId },
+              { toId: spouseId },
+            ],
+          },
+        });
+
+        if (unknownSpouseRel) {
+
+          const unknownId =
+            unknownSpouseRel.fromId === spouseId
+              ? unknownSpouseRel.toId
+              : unknownSpouseRel.fromId;
+
+          const unknownPerson = await tx.person.findUnique({
+            where: { id: unknownId },
+            select: {
+              fullName: true,
+            },
+          });
+
+          // Remove placeholder spouse
+          if (unknownPerson?.fullName === 'Unknown Spouse') {
+
+            await tx.relation.deleteMany({
+              where: {
+                treeId: parsedTreeId,
+                type: 'SPOUSE_OF',
+                OR: [
+                  {
+                    fromId: spouseId,
+                    toId: unknownId,
+                  },
+                  {
+                    fromId: unknownId,
+                    toId: spouseId,
+                  },
+                ],
+              },
+            });
+
+            await tx.person.delete({
+              where: {
+                id: unknownId,
+              },
+            });
+          }
+        }
+      }
+    }
 
     // ── Insert all relations (skipDuplicates as safety net) ───────────────
     const relationsData = [...relMap.values()];
