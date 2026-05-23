@@ -48,6 +48,12 @@ const schemas = {
     height: Joi.number().required(),
     bytes: Joi.number().required(),
   }),
+
+  saveAvatarFile: Joi.object({
+    personId: Joi.string().uuid().required(),
+    cloudinaryUrl: Joi.string().uri().required(),
+    publicId: Joi.string().required(),
+  }),
 };
 
 /**

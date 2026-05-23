@@ -49,13 +49,14 @@ const buildUpdatePayload = (input) => {
   if (Object.prototype.hasOwnProperty.call(input, 'deathDate')) payload.deathDate = input.deathDate ? new Date(input.deathDate) : null;
   if (Object.prototype.hasOwnProperty.call(input, 'notes')) payload.notes = input.notes || null;
   if (Object.prototype.hasOwnProperty.call(input, 'birthPlace')) payload.birthPlace = input.birthPlace || null;
+  if (Object.prototype.hasOwnProperty.call(input, 'avatarUrl')) payload.avatarUrl = input.avatarUrl || null;
   return payload;
 };
 
 const createPerson = async (treeId, input, req) => {
   const parsedTreeId = parseTreeId(treeId);
   await ensureTreeOwnership(parsedTreeId, req.user.id);
-
+  let unknownSpouse = null;
   // ── Validate relation targets BEFORE creating anything ──────────────────
   if (input.relations?.length > 0) {
     const toIds = [...new Set(input.relations.map(r => r.toId))];
@@ -76,12 +77,23 @@ const createPerson = async (treeId, input, req) => {
   // ── Run everything in a transaction ─────────────────────────────────────
   const person = await prisma.$transaction(async (tx) => {
     const slug = await generateUniquePersonSlug(parsedTreeId, input.fullName);
-
     const newPerson = await tx.person.create({
       data: {
         treeId: parsedTreeId,
         slug,
         ...buildCreatePayload(input),
+      },
+      select: {
+        id: true,
+        slug: true,
+        fullName: true,
+        gender: true,
+        birthDate: true,
+        birthPlace: true,
+        deathDate: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -192,7 +204,7 @@ const createPerson = async (treeId, input, req) => {
             'Unknown'
           );
 
-          const unknownSpouse = await tx.person.create({
+          unknownSpouse = await tx.person.create({
             data: {
               treeId: parsedTreeId,
               slug: unknownSlug,
@@ -204,12 +216,26 @@ const createPerson = async (treeId, input, req) => {
                     ? 'male'
                     : 'unknown',
             },
+            select: {
+              id: true,
+              slug: true,
+              fullName: true,
+              gender: true,
+              birthDate: true,
+              birthPlace: true,
+              deathDate: true,
+              notes: true,
+              createdAt: true,
+              updatedAt: true,
+            },
           });
 
           secondParentId = unknownSpouse.id;
 
           // Connect parent ↔ unknown spouse
           addRel(parentId, unknownSpouse.id, 'SPOUSE_OF');
+
+
         }
 
         // Connect second parent → new child
@@ -226,6 +252,7 @@ const createPerson = async (treeId, input, req) => {
 
           if (!alreadyLinked) {
             addRel(secondParentId, newPerson.id, 'PARENT_OF');
+
           }
         }
       }
@@ -268,6 +295,7 @@ const createPerson = async (treeId, input, req) => {
           // If not linked → make new spouse also parent
           if (!alreadyLinked) {
             addRel(newPerson.id, childRel.toId, 'PARENT_OF');
+
           }
         }
 
@@ -331,19 +359,19 @@ const createPerson = async (treeId, input, req) => {
 
     // ── Insert all relations (skipDuplicates as safety net) ───────────────
     const relationsData = [...relMap.values()];
-
+    let newRelations = []
     if (relationsData.length > 0) {
       console.log(`Creating ${relationsData.length} relations for person ${newPerson.id}`);
-      await tx.relation.createMany({
+      newRelations = await tx.relation.createManyAndReturn({
         data: relationsData,
         skipDuplicates: true,  // safety net for race conditions
       });
     }
 
-    return newPerson;
+    return { newPerson, createdRelations: newRelations };
   });
 
-  return person;
+  return { ...person, unknownSpouse };
 };
 
 const getAllPeople = async (treeId, req) => {
@@ -361,6 +389,7 @@ const getAllPeople = async (treeId, req) => {
       fullName: true,
       gender: true,
       birthDate: true,
+      birthPlace: true,
       deathDate: true,
       notes: true,
       createdAt: true,

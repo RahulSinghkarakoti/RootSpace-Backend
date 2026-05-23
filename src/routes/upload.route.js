@@ -13,6 +13,12 @@ router.get('/signature',
   protect,
   ctrl.getSignature
 );
+
+router.post('/avatar',
+  protect,
+  validate('saveAvatarFile'),
+  ctrl.saveAvatarFile
+);
   
 router.post('/bills',
   protect,

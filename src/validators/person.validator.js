@@ -41,8 +41,9 @@ const schemas = {
     birthDate: Joi.date().optional().allow(null),
     deathDate: Joi.date().optional().allow(null),
     notes: Joi.string().trim().max(1000).optional().allow(null, ""),
+    avatarUrl: Joi.string().uri().optional().allow(null, ""),
   })
-    .or("fullName", "gender", "birthDate", "deathDate", "notes")
+    .or("fullName", "gender", "birthDate", "deathDate", "notes", "avatarUrl")
     .custom((value, helpers) => {
       if (value.birthDate && value.deathDate) {
         const birth = new Date(value.birthDate);

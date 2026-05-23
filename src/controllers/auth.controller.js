@@ -57,7 +57,23 @@ const oauthCallback = async (req, res) => {
     return sendError(res, 500, "OAuth authentication failed");
   }
   const result = await authService.oauthUpsert(req.oauthUser, req);
-  sendSuccess(res, "OAuth login successful", result);
+  const { refreshToken, ...safeTokens } = result;
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  const frontendUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173";
+  const callbackUrl = new URL("/auth/google/callback", frontendUrl);
+  callbackUrl.searchParams.set(
+    "payload",
+    Buffer.from(JSON.stringify(safeTokens)).toString("base64url")
+  );
+
+  res.redirect(callbackUrl.toString());
 };
 
 // ── Profile / Sessions ────────────────────────────────────────────────────────
