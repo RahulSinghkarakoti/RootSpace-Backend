@@ -386,6 +386,7 @@ const getAllPeople = async (treeId, req) => {
     select: {
       id: true,
       slug: true,
+      avatarUrl: true,
       fullName: true,
       gender: true,
       birthDate: true,
@@ -394,10 +395,16 @@ const getAllPeople = async (treeId, req) => {
       notes: true,
       createdAt: true,
       updatedAt: true,
+      educationTimeline: {
+        orderBy: { startDate: "desc" },
+      },
     },
   });
 
-  return people;
+ return people.map(({ educationTimeline, ...person }) => ({
+  ...person,
+  education: educationTimeline,
+}));
 };
 
 const getPersonInTree = async (treeId, personId, req) => {

@@ -8,15 +8,37 @@ const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
 
 const getCloudinaryUploadSignature = async (req, res) => {
   const timestamp = Math.round(Date.now() / 1000);
-  const folder = `avatars/${req.user.id}`;
+  // Allow client to request signatures scoped to a specific person and type (avatar/media)
+  const personId = req.query.personId;
+  const type = req.query.type || 'avatar'; // 'avatar' or 'media'
+
+  let folderBase = type === 'media' ? 'media' : 'avatars';
+  let folder = `${folderBase}/${req.user.id}`;
+
+  // If a personId is provided, validate ownership and include it in the folder path
+  if (personId) {
+    const person = await prisma.person.findFirst({
+      where: {
+        id: personId,
+        tree: { createdBy: req.user.id },
+      },
+      select: { id: true },
+    });
+
+    if (!person) {
+      throw new AppError('Person not found or access denied', 404);
+    }
+
+    folder = `${folder}/${personId}`;
+  }
 
   // These params MUST match exactly what client sends to Cloudinary
   const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
 
   const signature = crypto
-    .createHash("sha256")
+    .createHash('sha256')
     .update(paramsToSign + CLOUDINARY_SECRET)
-    .digest("hex");
+    .digest('hex');
 
   return {
     signature,
