@@ -99,7 +99,7 @@ jobs:
 
       - name: Run Tests in Docker
         run: |
-          docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test
+          docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test
         env:
           DOCKER_BUILDKIT: 1
 
