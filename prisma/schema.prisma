@@ -28,13 +28,8 @@ enum TreeType {
 }
 
 enum RelationType {
-  FATHER_OF
-  MOTHER_OF
-  CHILD_OF
-  HUSBAND_OF
-  WIFE_OF
-  PARTNER_OF
-  SIBLING_OF
+  PARENT_OF 
+  SPOUSE_OF
 }
 
 enum EducationLevel {
@@ -43,6 +38,13 @@ enum EducationLevel {
   MASTERS
   PHD
   OTHER
+}
+
+enum TreePermissions{
+  VIEW
+  ADD_PERSON 
+  MEDIA_ONLY 
+  EDIT_OWN
 }
 
 // ── Models ───────────────────────────────────────────────────────────────────
@@ -67,6 +69,8 @@ model User {
   passwordResets     PasswordReset[]
   auditLogs          AuditLog[]
   trees              Trees[]
+shareTokens   TreeShareToken[]  @relation("UserShareTokens")
+shareMemberships TreeShareMember[] @relation("UserShareMemberships")
 
   @@map("users")
 }
@@ -88,6 +92,8 @@ model Trees {
   persons     Person[]   @relation("TreePersons")
   relations   Relation[] @relation("TreeRelations")
   media       Media[]    @relation("TreeMedia")
+shareTokens   TreeShareToken[]  @relation("TreeShareTokens")
+
 
   @@index([slug])
   @@index([createdBy])
@@ -95,30 +101,91 @@ model Trees {
   @@map("trees")
 }
 
+model TreeShareToken {
+  id          String          @id @default(uuid())
+  treeId      Int             @map("tree_id")
+  createdBy   String?         @map("user_id")
+  token       String          @unique @default(uuid()) @map("token")
+  permission  TreePermissions
+  personLimit Int?            @map("person_limit")
+  expiresAt   DateTime?       @map("expires_at")
+  isActive    Boolean         @default(true)  @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt      @map("updated_at")
+
+  tree    Trees              @relation("TreeShareTokens", fields: [treeId], references: [id], onDelete: Cascade)
+  user    User?              @relation("UserShareTokens", fields: [createdBy], references: [id], onDelete: SetNull)
+  members TreeShareMember[]
+
+  @@index([token])
+  @@index([treeId])
+  @@map("tree_share_tokens")
+}
+
+model TreeShareMember {
+  id                String   @id @default(uuid())
+  tokenId           String   @map("token_id")
+  userId            String   @map("user_id")
+  addedPersonsCount Int      @default(0) @map("added_persons_count")
+  joinedAt          DateTime @default(now()) @map("joined_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  token TreeShareToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  user  User           @relation("UserShareMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+addedPersons Person[] @relation("PersonCreatedByMember")
+
+  @@unique([tokenId, userId])
+  @@index([tokenId])
+  @@index([userId])
+  @@map("tree_share_members")
+}
+
 model Person {
   id        String      @id @default(uuid())
+createdByMemberId String? @map("created_by_member_id")
   slug      String
   fullName  String
   gender    String?
+  avatarUrl String?
+
   birthDate DateTime?
   deathDate DateTime?
+  birthPlace String?    @map("birth_place")
   treeId    Int         @map("tree_id")  // FIXED: Int to match Trees.id
   notes     String?
   createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt      @map("updated_at")
+  updatedAt DateTime    @updatedAt      @map("updated_at") 
 
   // Relations
+createdByMember TreeShareMember? @relation("PersonCreatedByMember", fields: [createdByMemberId], references: [id], onDelete: SetNull)
   tree              Trees           @relation("TreePersons", fields: [treeId], references: [id], onDelete: Cascade)
   educationTimeline EducationEntry[]
   gallery           Media[]         @relation("PersonMedia")
   relationsFrom     Relation[]      @relation("FromPerson")
   relationsTo       Relation[]      @relation("ToPerson")
+  layout    PersonLayout?
 
   @@unique([treeId, slug])
   @@index([treeId])
   @@index([fullName])
   @@index([birthDate])
   @@map("persons")
+}
+
+model PersonLayout {
+  id       String @id @default(uuid())
+  personId String @unique  @map("person_id")
+  treeId   Int  @map("tree_id")
+
+  x Float
+  y Float
+  width Float?
+  height Float?
+
+  person Person @relation(fields:[personId], references:[id])
+  @@map("person_layout")
+
 }
 
 model EducationEntry {

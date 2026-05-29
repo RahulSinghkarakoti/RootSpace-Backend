@@ -16,7 +16,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/trees',protect, treeRoutes);
-router.use('/people', protect, personRoutes);
+router.use('/person', protect, personRoutes);
 router.use('/relations', protect, relationRoutes);
 router.use('/media', protect, mediaRoutes);
 router.use('/upload',protect, uploadRoutes);

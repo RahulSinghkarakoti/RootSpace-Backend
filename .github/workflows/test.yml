@@ -16,6 +16,9 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/family_tree_test_db?schema=public
+
 
     services:
       postgres:
@@ -47,11 +50,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npm run prisma:generate
-
+       
       - name: Run Database Migrations
         run: npm run prisma:deploy
-        env:
-          DATABASE_URL: postgresql://postgres:password@localhost:5432/family_tree_test_db?schema=public
 
       - name: Run Linting
         run: npm run lint
@@ -98,7 +99,7 @@ jobs:
 
       - name: Run Tests in Docker
         run: |
-          docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test
+          docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from api-test
         env:
           DOCKER_BUILDKIT: 1
 
