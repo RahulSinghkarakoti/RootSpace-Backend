@@ -39,12 +39,13 @@ enum EducationLevel {
   PHD
   OTHER
 }
-
-enum TreePermissions{
-  VIEW
-  ADD_PERSON 
-  MEDIA_ONLY 
-  EDIT_OWN
+enum TreePermissions {
+  VIEW_ONLY          // read only
+  MEDIA_ONLY         // upload media only
+  ADD_PERSON         // add persons (with limit)
+  CONTRIBUTOR        // add person + media
+  EDITOR             // add + edit own added persons + media
+  FULL_ACCESS        // everything except delete tree
 }
 
 // ── Models ───────────────────────────────────────────────────────────────────

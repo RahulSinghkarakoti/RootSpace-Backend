@@ -13,6 +13,7 @@ const router = express.Router();
 
 router.post("/", apiLimiter, treeValidate("createTree"), treeCtrl.createTree);
 router.get("/", apiLimiter, treeCtrl.getAllTrees);
+router.get('/collaborations', apiLimiter, treeCtrl.getCollaborations);
 router.get("/:id", treeCtrl.getTreeById);
 router.get("/slug/:slug", treeCtrl.getTreeBySlug);
 router.delete("/:id", treeCtrl.deleteTree);
@@ -23,6 +24,11 @@ router.patch(
   treeCtrl.updateTree,
 );
 
+//share operations
+router.post("/:treeId/share", apiLimiter, treeValidate("generateShareLink"), treeCtrl.generateShareLink,);
+router.patch("/:treeId/share/:token",apiLimiter,treeValidate("generateShareLink"),treeCtrl.updateTreeShareLink)
+router.get("/:treeId/share", treeCtrl.getAllSharedTrees);
+router.delete("/:treeId/share/:token", treeCtrl.deleteShareLink);
 // people operations
 router.post(
   "/:treeId/person",
@@ -30,6 +36,7 @@ router.post(
   personValidate("createPerson"),
   personCtrl.createPerson,
 );
+
 router.get("/:treeId/person", apiLimiter, personCtrl.getAllPeople);
 router.get("/:treeId/person/:personId", apiLimiter, personCtrl.getPersonInTree);
 
