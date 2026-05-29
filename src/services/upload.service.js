@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import prisma from "../config/prisma.js";
 import AppError from "../utils/AppError.js";
+import sharedTreeService from "./sharedTree.service.js";
+import { hasTreeShareRight } from "../utils/treeSharePermissions.js";
 
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET;
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
@@ -11,19 +13,14 @@ const getCloudinaryUploadSignature = async (req, res) => {
   // Allow client to request signatures scoped to a specific person and type (avatar/media)
   const personId = req.query.personId;
   const type = req.query.type || 'avatar'; // 'avatar' or 'media'
+  const shareToken = req.query.shareToken;
 
   let folderBase = type === 'media' ? 'media' : 'avatars';
   let folder = `${folderBase}/${req.user.id}`;
 
   // If a personId is provided, validate ownership and include it in the folder path
   if (personId) {
-    const person = await prisma.person.findFirst({
-      where: {
-        id: personId,
-        tree: { createdBy: req.user.id },
-      },
-      select: { id: true },
-    });
+    const person = await findPersonForAvatarAccess(personId, req, shareToken);
 
     if (!person) {
       throw new AppError('Person not found or access denied', 404);
@@ -48,6 +45,36 @@ const getCloudinaryUploadSignature = async (req, res) => {
     apiKey: CLOUDINARY_API_KEY,
     cloudName: CLOUDINARY_CLOUD_NAME,
   };
+};
+
+const canUseSharedMedia = (access) =>
+  hasTreeShareRight(access.permission, "media") ||
+  hasTreeShareRight(access.permission, "edit_any");
+
+const findPersonForAvatarAccess = async (personId, req, shareToken) => {
+  const ownerPerson = await prisma.person.findFirst({
+    where: {
+      id: personId,
+      tree: { createdBy: req.user.id },
+    },
+    select: { id: true, treeId: true, avatarUrl: true },
+  });
+
+  if (ownerPerson) return ownerPerson;
+  if (!shareToken) return null;
+
+  const access = await sharedTreeService.verifyShareToken(shareToken, req);
+  if (!canUseSharedMedia(access)) {
+    throw new AppError("This share link does not allow media updates", 403);
+  }
+
+  return prisma.person.findFirst({
+    where: {
+      id: personId,
+      treeId: access.tree.id,
+    },
+    select: { id: true, treeId: true, avatarUrl: true },
+  });
 };
 
 const extractCloudinaryPublicId = (url) => {
@@ -83,16 +110,11 @@ const destroyCloudinaryImage = async (publicId) => {
 };
 
 const savePersonAvatar = async (
-  { personId, publicId, cloudinaryUrl },
+  { personId, publicId, cloudinaryUrl, shareToken },
   req,
   res,
 ) => {
-  const person = await prisma.person.findFirst({
-    where: {
-      id: personId,
-      tree: { createdBy: req.user.id },
-    },
-  });
+  const person = await findPersonForAvatarAccess(personId, req, shareToken);
 
   if (!person) {
     throw new AppError("Person not found or access denied", 404);

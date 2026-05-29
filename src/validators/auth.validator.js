@@ -53,6 +53,7 @@ const schemas = {
     personId: Joi.string().uuid().required(),
     cloudinaryUrl: Joi.string().uri().required(),
     publicId: Joi.string().required(),
+    shareToken: Joi.string().optional().allow(null, ""),
   }),
 };
 

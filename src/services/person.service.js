@@ -2,7 +2,7 @@ import prisma from "../config/prisma.js";
 import AppError from "../utils/AppError.js";
 import { generateUniquePersonSlug } from "../utils/tree.js";
 
-const ensureTreeOwnership = async (treeId, userId) => {
+export const ensureTreeOwnership = async (treeId, userId) => {
   const tree = await prisma.trees.findUnique({
     where: { id: treeId },
     select: { id: true, createdBy: true },
@@ -55,7 +55,15 @@ const buildUpdatePayload = (input) => {
 
 const createPerson = async (treeId, input, req) => {
   const parsedTreeId = parseTreeId(treeId);
-  await ensureTreeOwnership(parsedTreeId, req.user.id);
+  const shareAccess = req.shareAccess?.treeId === parsedTreeId ? req.shareAccess : null;
+  if (!shareAccess) {
+    await ensureTreeOwnership(parsedTreeId, req.user.id);
+  } else if (
+    Number.isInteger(shareAccess.personLimit) &&
+    shareAccess.addedPersonsCount >= shareAccess.personLimit
+  ) {
+    throw new AppError("Person limit reached for this share link", 403);
+  }
   let unknownSpouse = null;
   // ── Validate relation targets BEFORE creating anything ──────────────────
   if (input.relations?.length > 0) {
@@ -80,6 +88,7 @@ const createPerson = async (treeId, input, req) => {
     const newPerson = await tx.person.create({
       data: {
         treeId: parsedTreeId,
+        createdByMemberId: shareAccess?.memberId ?? null,
         slug,
         ...buildCreatePayload(input),
       },
@@ -207,6 +216,7 @@ const createPerson = async (treeId, input, req) => {
           unknownSpouse = await tx.person.create({
             data: {
               treeId: parsedTreeId,
+              createdByMemberId: shareAccess?.memberId ?? null,
               slug: unknownSlug,
               fullName: 'Unknown',
               gender:
@@ -368,6 +378,22 @@ const createPerson = async (treeId, input, req) => {
       });
     }
 
+    const createdPersonCount = unknownSpouse ? 2 : 1;
+    if (shareAccess) {
+
+      if (
+        Number.isInteger(shareAccess.personLimit) &&
+        shareAccess.addedPersonsCount + createdPersonCount > shareAccess.personLimit
+      ) {
+        throw new AppError("Person limit reached for this share link", 403);
+      }
+
+      await tx.treeShareMember.update({
+        where: { id: shareAccess.memberId },
+        data: { addedPersonsCount: { increment: createdPersonCount } },
+      });
+    }
+
     return { newPerson, createdRelations: newRelations };
   });
 
@@ -401,10 +427,10 @@ const getAllPeople = async (treeId, req) => {
     },
   });
 
- return people.map(({ educationTimeline, ...person }) => ({
-  ...person,
-  education: educationTimeline,
-}));
+  return people.map(({ educationTimeline, ...person }) => ({
+    ...person,
+    education: educationTimeline,
+  }));
 };
 
 const getPersonInTree = async (treeId, personId, req) => {
@@ -468,12 +494,34 @@ const deletePerson = async (personId, req) => {
   const existing = await prisma.person.findFirst({
     where: {
       id: personId,
-      tree: { createdBy: req.user.id },
+      OR: [
+        {
+          tree: {
+            createdBy: req.user.id,
+          },
+        },
+        {
+          createdByMember: {
+            userId: req.user.id ?? null,
+          }
+        },
+      ],
     },
   });
 
   if (!existing) {
     throw new AppError("Person not found", 404);
+  }
+
+  if (existing.createdByMemberId) {
+    const shareAccess = await prisma.treeShareMember.update({
+      where: {
+        id: existing.createdByMemberId
+      },
+      data: {
+        addedPersonsCount: { decrement: 1 }
+      }
+    });
   }
 
   const person = await prisma.person.delete({
@@ -482,6 +530,8 @@ const deletePerson = async (personId, req) => {
 
   return person;
 };
+
+
 
 export default {
   createPerson,

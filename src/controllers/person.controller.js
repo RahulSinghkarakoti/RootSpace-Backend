@@ -41,5 +41,5 @@ export default {
   getPersonInTree,
   getPersonById,
   updatePerson,
-  deletePerson,
+  deletePerson, 
 };

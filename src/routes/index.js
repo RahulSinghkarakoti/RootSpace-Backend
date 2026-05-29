@@ -3,6 +3,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import uploadRoutes from './upload.route.js';
 import treeRoutes from './tree.routes.js'
+import sharedTreeRoutes from './sharedTree.routes.js';
 import personRoutes from './person.routes.js';
 import relationRoutes from './relation.routes.js';
 import mediaRoutes from './media.routes.js';
@@ -15,6 +16,7 @@ const router = Router();
 // Future: const llmRoutes  = require('./llm.routes');
 
 router.use('/auth', authRoutes);
+router.use('/shared-trees', protect, sharedTreeRoutes);
 router.use('/trees',protect, treeRoutes);
 router.use('/person', protect, personRoutes);
 router.use('/relations', protect, relationRoutes);
