@@ -1,0 +1,341 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+enum OAuthProvider {
+  GOOGLE
+  APPLE
+  FACEBOOK
+}
+
+enum TreeType {
+  FAMILY
+  EDUCATIONAL
+}
+
+enum RelationType {
+  PARENT_OF 
+  SPOUSE_OF
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  BACHELORS
+  MASTERS
+  PHD
+  OTHER
+}
+enum TreePermissions {
+  VIEW_ONLY          // read only
+  MEDIA_ONLY         // upload media only
+  ADD_PERSON         // add persons (with limit)
+  CONTRIBUTOR        // add person + media
+  EDITOR             // add + edit own added persons + media
+  FULL_ACCESS        // everything except delete tree
+}
+
+// ── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  avatarUrl    String?  @map("avatar_url")
+  role         Role     @default(USER)
+  isVerified   Boolean  @default(false) @map("is_verified")
+  isActive     Boolean  @default(true)  @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  // Relations
+  oauthProviders     OAuthProviderRecord[]
+  refreshTokens      RefreshToken[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+  auditLogs          AuditLog[]
+  trees              Trees[]
+shareTokens   TreeShareToken[]  @relation("UserShareTokens")
+shareMemberships TreeShareMember[] @relation("UserShareMemberships")
+
+  @@map("users")
+}
+
+model Trees {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  coverImage  String?  @map("cover_image")
+  memberCount Int?     @default(0) @map("member_count")
+  createdBy   String?  @map("created_by")
+  type        TreeType
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added missing back-relations
+  user        User?      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  persons     Person[]   @relation("TreePersons")
+  relations   Relation[] @relation("TreeRelations")
+  media       Media[]    @relation("TreeMedia")
+shareTokens   TreeShareToken[]  @relation("TreeShareTokens")
+
+
+  @@index([slug])
+  @@index([createdBy])
+  @@index([name])
+  @@map("trees")
+}
+
+model TreeShareToken {
+  id          String          @id @default(uuid())
+  treeId      Int             @map("tree_id")
+  createdBy   String?         @map("user_id")
+  token       String          @unique @default(uuid()) @map("token")
+  permission  TreePermissions
+  personLimit Int?            @map("person_limit")
+  expiresAt   DateTime?       @map("expires_at")
+  isActive    Boolean         @default(true)  @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt      @map("updated_at")
+
+  tree    Trees              @relation("TreeShareTokens", fields: [treeId], references: [id], onDelete: Cascade)
+  user    User?              @relation("UserShareTokens", fields: [createdBy], references: [id], onDelete: SetNull)
+  members TreeShareMember[]
+
+  @@index([token])
+  @@index([treeId])
+  @@map("tree_share_tokens")
+}
+
+model TreeShareMember {
+  id                String   @id @default(uuid())
+  tokenId           String   @map("token_id")
+  userId            String   @map("user_id")
+  addedPersonsCount Int      @default(0) @map("added_persons_count")
+  joinedAt          DateTime @default(now()) @map("joined_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  token TreeShareToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  user  User           @relation("UserShareMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+addedPersons Person[] @relation("PersonCreatedByMember")
+
+  @@unique([tokenId, userId])
+  @@index([tokenId])
+  @@index([userId])
+  @@map("tree_share_members")
+}
+
+model Person {
+  id        String      @id @default(uuid())
+createdByMemberId String? @map("created_by_member_id")
+  slug      String
+  fullName  String
+  gender    String?
+  avatarUrl String?
+
+  birthDate DateTime?
+  deathDate DateTime?
+  birthPlace String?    @map("birth_place")
+  treeId    Int         @map("tree_id")  // FIXED: Int to match Trees.id
+  notes     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt      @map("updated_at") 
+
+  // Relations
+createdByMember TreeShareMember? @relation("PersonCreatedByMember", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+  tree              Trees           @relation("TreePersons", fields: [treeId], references: [id], onDelete: Cascade)
+  educationTimeline EducationEntry[]
+  gallery           Media[]         @relation("PersonMedia")
+  relationsFrom     Relation[]      @relation("FromPerson")
+  relationsTo       Relation[]      @relation("ToPerson")
+  layout    PersonLayout?
+
+  @@unique([treeId, slug])
+  @@index([treeId])
+  @@index([fullName])
+  @@index([birthDate])
+  @@map("persons")
+}
+
+model PersonLayout {
+  id       String @id @default(uuid())
+  personId String @unique  @map("person_id")
+  treeId   Int  @map("tree_id")
+
+  x Float
+  y Float
+  width Float?
+  height Float?
+
+  person Person @relation(fields:[personId], references:[id])
+  @@map("person_layout")
+
+}
+
+model EducationEntry {
+  id          String   @id @default(uuid())
+  personId    String   @map("person_id")
+  title       String
+  institution String
+  level       EducationLevel
+  startDate   DateTime?
+  endDate     DateTime?
+  description String?
+  degreeUrl   String?  @map("degree_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([startDate])
+  @@index([institution])
+  @@map("education_entries")
+}
+
+model Media {
+  id          String   @id @default(uuid())
+  personId    String?  @map("person_id")
+  treeId      Int?     @map("tree_id")     // FIXED: Int to match Trees.id
+  url         String
+  altText     String?  @map("alt_text")
+  caption     String?
+  type        String   // "PHOTO", "VIDEO", "DOCUMENT"
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added relation names
+  person Person? @relation("PersonMedia", fields: [personId], references: [id], onDelete: Cascade)
+  tree   Trees?  @relation("TreeMedia", fields: [treeId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([treeId])
+  @@index([order])
+  @@map("media")
+}
+
+model Relation {
+  id          String      @id @default(uuid())
+  treeId      Int         @map("tree_id")      // FIXED: Int to match Trees.id
+  fromId      String      @map("from_id")
+  toId        String      @map("to_id")
+  type        RelationType
+  metadata    Json?       
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt      @map("updated_at")
+
+  // Relations - FIXED: Added relation names
+  tree        Trees       @relation("TreeRelations", fields: [treeId], references: [id], onDelete: Cascade)
+  fromPerson  Person      @relation("FromPerson", fields: [fromId], references: [id], onDelete: Cascade)
+  toPerson    Person      @relation("ToPerson", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([treeId, fromId, toId, type])
+  @@index([treeId, fromId])
+  @@index([treeId, toId])
+  @@index([type])
+  @@map("relations")
+}
+
+// ── Auth Models (unchanged) ─────────────────────────────────────────────────
+
+model OAuthProviderRecord {
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id")
+  provider     OAuthProvider
+  providerId   String   @map("provider_id")
+  accessToken  String?  @map("access_token")
+  refreshToken String?  @map("refresh_token")
+  tokenExpires DateTime? @map("token_expires")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@map("oauth_providers")
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  deviceInfo String?  @map("device_info")
+  ipAddress  String?  @map("ip_address")
+  expiresAt  DateTime @map("expires_at")
+  revoked    Boolean  @default(false)
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model EmailVerification {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("password_resets")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    String?  @map("user_id")
+  action    String
+  entity    String?
+  entityId  String?  @map("entity_id")
+  metadata  Json?
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

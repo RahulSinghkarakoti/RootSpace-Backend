@@ -1,0 +1,9 @@
+{
+  
+  "window.title": "🟢 Node Backend",
+"workbench.colorTheme": "Monokai",
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#2e7d32",
+    "statusBar.background": "#388e3c"
+  }
+}
