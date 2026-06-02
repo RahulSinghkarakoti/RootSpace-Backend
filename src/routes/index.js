@@ -25,9 +25,10 @@ router.use('/upload',protect, uploadRoutes);
 router.use('/', protect, educationRoutes);
 // router.use('/ocr', protect, ocrRoutes);
 // router.use('/llm', protect, llmRoutes);
-
+ 
 // Health check
 router.get('/health', (_req, res) => {
+
   res.json({
     success: true,
     uptime: process.uptime(),

@@ -5,6 +5,7 @@ import sharedTreeCtrl from "../controllers/sharedTree.controller.js";
 
 const router = express.Router();
 
+router.get("/", apiLimiter, sharedTreeCtrl.getAllSharedTrees);
 router.get("/:token/verify", apiLimiter, sharedTreeCtrl.verifyShareToken);
 router.get("/:token", apiLimiter, sharedTreeCtrl.getSharedTreeData);
 router.post(

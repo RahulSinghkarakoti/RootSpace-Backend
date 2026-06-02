@@ -35,10 +35,15 @@ const deleteSharedPerson = async (req, res) => {
   sendSuccess(res, "Shared tree person deleted successfully", result);
 };
 
+const getAllSharedTrees = async (req, res) => {
+  const result = await sharedTreeService.getAllSharedTrees(req);
+  sendSuccess(res, "All shared trees fetched successfully", result);
+};
+
 export default {
   verifyShareToken,
   getSharedTreeData,
   createSharedPerson,
   updateSharedPerson,
-  deleteSharedPerson,
+  deleteSharedPerson,getAllSharedTrees
 };

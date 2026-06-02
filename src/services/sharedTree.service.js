@@ -250,10 +250,30 @@ async function deleteSharedPerson(token, personId, req) {
     decrementAddedCount: existing.createdByMemberId === access.member.id,
   };
 }
+async function getAllSharedTrees(req) {
+  let sharedTrees = await prisma.treeShareToken.findMany({
+    where: {
+      OR: [
+        { expiresAt: { gt: new Date() } },
+        { expiresAt: null },
+      ],
+      createdBy: req.user.id,
+    },
+    include: {
+      tree: true,
+      members: true,
+    },
+  }); 
+
+  return sharedTrees.map((share) => ({
+    ...share,
+    link: `${process.env.FRONTEND_URL}/shared?token=${share.token}`
+  }));
+}
 export default {
   verifyShareToken,
   getSharedTreeData,
   createSharedPerson,
   updateSharedPerson,
-  deleteSharedPerson,
+  deleteSharedPerson, getAllSharedTrees
 };

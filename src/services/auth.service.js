@@ -4,13 +4,14 @@ import prisma from "../config/prisma.js";
 import {
   getAccessTokenExpiry,
   getRefreshTokenExpiry,
+  generatePasswordResetToken,
   generateAccessToken,
   generateRefreshToken,
-  hashToken,
+  hashToken, verifyPasswordResetToken
 } from "../utils/token.js";
 import AppError from "../utils/AppError.js";
 import { audit } from "../utils/audit.js";
-
+import { sendPasswordResetEmailTemplate } from "../utils/sendEmail.js";
 const BCRYPT_ROUNDS = 12;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -29,10 +30,10 @@ const issueTokenPair = async (user, { ipAddress, deviceInfo } = {}) => {
   const accessToken = generateAccessToken(user);
   const rawRefresh = generateRefreshToken();
   const refreshToken = rawRefresh; // send raw to client
-  
-  
+
+
   const refreshExpiresAt = getRefreshTokenExpiry(); // returns Date
-  const accessExpiresAt =  new Date(getAccessTokenExpiry()).getTime();
+  const accessExpiresAt = new Date(getAccessTokenExpiry()).getTime();
 
   await prisma.refreshToken.create({
     data: {
@@ -49,7 +50,7 @@ const issueTokenPair = async (user, { ipAddress, deviceInfo } = {}) => {
 
 // ── Register ─────────────────────────────────────────────────────────────────
 
-const register = async ({ firstName, lastName, email, password }, req,res) => {
+const register = async ({ firstName, lastName, email, password }, req, res) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new AppError("Email is already registered", 409);
 
@@ -79,13 +80,13 @@ const register = async ({ firstName, lastName, email, password }, req,res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
   });
 
- const { refreshToken, ...safeTokens } = tokens;
+  const { refreshToken, ...safeTokens } = tokens;
 
   return {
     user: sanitizeUser(user),
-    tokens:safeTokens,
+    tokens: safeTokens,
   };
- 
+
 };
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -122,20 +123,20 @@ const login = async ({ email, password }, req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
   });
 
- const { refreshToken, ...safeTokens } = tokens;
+  const { refreshToken, ...safeTokens } = tokens;
 
   return {
     user: sanitizeUser(user),
-        tokens:safeTokens,
+    tokens: safeTokens,
   };
 };
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
 
-const refreshTokens = async ( rawToken,req) => {
+const refreshTokens = async (rawToken, req) => {
 
   if (!rawToken) throw new AppError("Refresh token required", 400);
-  
+
   const tokenHash = hashToken(rawToken);
 
   const stored = await prisma.refreshToken.findUnique({
@@ -160,7 +161,7 @@ const refreshTokens = async ( rawToken,req) => {
     deviceInfo: req.headers["user-agent"],
   });
 
- 
+
   return {
     user: sanitizeUser(stored.user),
     ...tokens,
@@ -236,8 +237,8 @@ const oauthUpsert = async (
 
 // ── Get active sessions ───────────────────────────────────────────────────────
 
-const getSessions = async (userId) => {
-  return prisma.refreshToken.findMany({
+const getSessions = async (userId, req) => {
+  const sessions = await prisma.refreshToken.findMany({
     where: { userId, revoked: false, expiresAt: { gte: new Date() } },
     select: {
       id: true,
@@ -248,14 +249,97 @@ const getSessions = async (userId) => {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress
+  const deviceInfo = req.headers["user-agent"]
+
+  return sessions.map((s) => ({
+    ...s,
+    isCurrent: s.ipAddress === ipAddress && s.deviceInfo === deviceInfo,
+  }))
 };
+
+async function sendPasswordResetEmail(email, req, res) {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return; // Don't reveal if email exists 
+  const exisitingToken = await prisma.PasswordReset.findFirst({
+    where: { userId: user.id, expiresAt: { gte: new Date() } }
+  })
+  let token = exisitingToken?.tokenHash
+  if (!exisitingToken?.id) {
+    token = generatePasswordResetToken(user.id, user.email);
+    const expiresAt = new Date();
+    expiresAt.setHours(
+      expiresAt.getHours() + Number(process.env.RESET_TOKEN_EXPIRY_HOURS)
+    );
+
+    await prisma.PasswordReset.create({
+      data: {
+        userId: user.id,
+        tokenHash: token,
+        expiresAt,
+      },
+    });
+
+  }
+  await sendPasswordResetEmailTemplate(
+    user.email, user.firstName, token, "PASSWORD_RESET"
+  );
+  return
+
+}
+
+async function revokeSession(sessionId, userId, req) {
+  await prisma.refreshToken.update({
+    where: { id: sessionId, userId },
+    data: { revoked: true, revokedAt: new Date() },
+  });
+  await audit({ userId, action: "REVOKE_SESSION", req });
+}
+
+async function changePassword(token, newPassword, req, res) {
+  const resetRecord = await prisma.PasswordReset.findFirst({
+    where: { tokenHash: token, expiresAt: { gte: new Date() } },
+    include: { user: true },
+  });
+  console.log("Token:", token);
+  console.log("Verified:", verifyPasswordResetToken(token));
+
+  if (!resetRecord) {
+    throw new AppError("Invalid or expired password reset token", 400);
+  }
+  if (!verifyPasswordResetToken(token)) {
+    throw new AppError("Invalid or expired password reset token", 400);
+  }
+  const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: resetRecord.userId },
+    data: { passwordHash: hashedPassword },
+  });
+  await prisma.PasswordReset.update({
+    where: { id: resetRecord.id },
+    data: { expiresAt: new Date() }, // expire immediately
+  });
+
+  const user = await prisma.user.findUnique({ where: { id: resetRecord.userId } });
+
+  await audit({
+    userId: user.id,
+    action: "CHANGE_PASSWORD",
+    entity: "User",
+    entityId: user.id,
+    req,
+  });
+  return {email: user.email}
+}
 
 export default {
   register,
-  login,
+  login, sendPasswordResetEmail,
   refreshTokens,
   logout,
   logoutAll,
   oauthUpsert,
-  getSessions,
+  getSessions, revokeSession, changePassword
 };

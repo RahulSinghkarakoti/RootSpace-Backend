@@ -9,26 +9,41 @@ const password = Joi.string()
     "string.pattern.base":
       "Password must contain uppercase, lowercase, number, and special character",
   });
+const allowedDomains = ["gmail.com", "rootspace.app"];
+
+const email = Joi.string()
+  .email({ tlds: { allow: false } })
+  .lowercase()
+  .custom((value, helpers) => {
+    const domain = value.split("@")[1];
+    return allowedDomains.includes(domain)
+      ? value
+      : helpers.error("any.invalid");
+  }) 
+  .messages({
+    "any.invalid": "Email domain is not allowed",
+  })
+
+
 
 const schemas = {
   register: Joi.object({
     firstName: Joi.string().trim().min(1).max(100).required(),
     lastName: Joi.string().trim().min(1).max(100).required(),
-    email: Joi.string().email().lowercase().required(),
+    email: email.required(),
     password: password.required(),
   }),
 
   login: Joi.object({
-    email: Joi.string().email().lowercase().required(),
+    email: email.required(),
     password: Joi.string().required(),
-  }),
-
+  }), 
   refreshToken: Joi.object({
     refreshToken: Joi.string().required(),
   }),
 
-  forgotPassword: Joi.object({
-    email: Joi.string().email().lowercase().required(),
+  sendPasswordResetEmail: Joi.object({
+    email: email.required(),
   }),
 
   resetPassword: Joi.object({
@@ -37,7 +52,7 @@ const schemas = {
   }),
 
   changePassword: Joi.object({
-    currentPassword: Joi.string().required(),
+    token: Joi.string().required(),
     newPassword: password.required(),
   }),
 

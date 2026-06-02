@@ -1,10 +1,10 @@
 // src/routes/auth.routes.js
 import express from 'express';
 import passport from 'passport';
-import ctrl     from '../controllers/auth.controller.js';
-import { protect }    from '../middleware/auth.middleware.js';
+import ctrl from '../controllers/auth.controller.js';
+import { protect } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
-import { validate }   from '../validators/auth.validator.js';
+import { validate } from '../validators/auth.validator.js';
 const router = express.Router();
 
 // ── Local Auth ──────────────────────────────────────────────────────────────
@@ -23,11 +23,23 @@ router.post('/login',
   ctrl.login
 );
 
+router.post('/send-password-reset-email',
+  authLimiter,
+  validate('sendPasswordResetEmail'), 
+  ctrl.sendPasswordResetEmail
+);
+
+router.post('/change-password',
+  authLimiter,
+  validate('changePassword'),
+  ctrl.changePassword
+);
+
 // POST /auth/refresh
 // Public — but rate-limited. Body: { refreshToken }
 router.post('/refresh',
   authLimiter,
-  // validate('refreshToken'),
+  validate('refreshToken'),
   ctrl.refreshToken
 );
 
@@ -41,6 +53,11 @@ router.post('/logout',
 router.post('/logout-all',
   protect,
   ctrl.logoutAll
+);
+
+router.post('/revoke-session/:sessionId',
+  protect,
+  ctrl.revokeSession
 );
 
 // ── OAuth — Google ───────────────────────────────────────────────────────────

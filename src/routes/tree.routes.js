@@ -26,7 +26,7 @@ router.patch(
 
 //share operations
 router.post("/:treeId/share", apiLimiter, treeValidate("generateShareLink"), treeCtrl.generateShareLink,);
-router.patch("/:treeId/share/:token",apiLimiter,treeValidate("generateShareLink"),treeCtrl.updateTreeShareLink)
+router.patch("/:treeId/share/:token",apiLimiter,treeValidate("updateShareLink"),treeCtrl.updateTreeShareLink)
 router.get("/:treeId/share", treeCtrl.getAllSharedTrees);
 router.delete("/:treeId/share/:token", treeCtrl.deleteShareLink);
 // people operations

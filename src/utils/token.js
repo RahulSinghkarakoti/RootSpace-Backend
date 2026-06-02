@@ -1,5 +1,5 @@
 // src/utils/token.js
-import jwt   from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
 // ── JWT ──────────────────────────────────────────────────────────────────────
@@ -11,10 +11,10 @@ import crypto from 'crypto';
 const generateAccessToken = (user) =>
   jwt.sign(
     {
-      sub:   user.id,
+      sub: user.id,
       email: user.email,
-      role:  user.role,
-      type:  'access',
+      role: user.role,
+      type: 'access',
     },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m', issuer: process.env.APP_NAME || 'AuthServer' }
@@ -43,30 +43,47 @@ const verifyAccessToken = (token) =>
  */
 const getRefreshTokenExpiry = () => {
   const raw = process.env.JWT_REFRESH_EXPIRES || '7d';
-  const unit  = raw.slice(-1);
+  const unit = raw.slice(-1);
   const value = parseInt(raw);
   const ms = unit === 'd' ? value * 86400000
-            : unit === 'h' ? value * 3600000
-            : unit === 'm' ? value * 60000
-            : value * 1000;
+    : unit === 'h' ? value * 3600000
+      : unit === 'm' ? value * 60000
+        : value * 1000;
   return new Date(Date.now() + ms);
 };
 const getAccessTokenExpiry = () => {
   const raw = process.env.JWT_ACCESS_EXPIRES || '7d';
-  const unit  = raw.slice(-1);
+  const unit = raw.slice(-1);
   const value = parseInt(raw);
   const ms = unit === 'd' ? value * 86400000
-            : unit === 'h' ? value * 3600000
-            : unit === 'm' ? value * 60000
-            : value * 1000;
+    : unit === 'h' ? value * 3600000
+      : unit === 'm' ? value * 60000
+        : value * 1000;
   return new Date(Date.now() + ms);
 };
 
-export  {
+const generatePasswordResetToken = (userId, email) => {
+ return jwt.sign(
+    {
+      userId,
+      email,
+    },
+    process.env.PASSWORD_RESET_SECRET,
+    { expiresIn: `${process.env.RESET_TOKEN_EXPIRY_HOURS || '2'}h`, issuer: process.env.APP_NAME || 'AuthServer' }
+  );
+}
+
+const verifyPasswordResetToken = (token) => {
+  return jwt.verify(token, process.env.PASSWORD_RESET_SECRET);
+}
+
+export {
   generateAccessToken,
   generateRefreshToken,
   hashToken,
   verifyAccessToken,
   getRefreshTokenExpiry,
-  getAccessTokenExpiry
+  getAccessTokenExpiry,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
 };

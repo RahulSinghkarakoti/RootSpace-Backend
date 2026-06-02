@@ -83,6 +83,7 @@ const getAllTrees = async (req) => {
       permission: link.permission,
       personLimit: link.personLimit,
       expiresAt: link.expiresAt,
+      isActive: link.isActive,
       token: link.token,
       link: `${process.env.FRONTEND_URL}/shared?token=${link.token}`
     }));
@@ -224,9 +225,8 @@ async function generateShareLink(treeId, { permission, personLimit = 10, expires
       expiresAt: expiresAtDate,
     },
   });
-  const { token, ...rest } = newShareTokenEntry;
   return {
-    ...rest,
+    ...newShareTokenEntry,
     link: `${process.env.FRONTEND_URL}/shared?token=${shareId}`
   };
 }
@@ -244,6 +244,7 @@ async function getAllSharedTrees(treeId, req) {
       permission: true,
       personLimit: true,
       expiresAt: true,
+      isActive: true,
       createdBy: true,
     },
   });
@@ -265,10 +266,9 @@ async function deleteShareLink(treeId, token, req) {
   return { message: "Share link deleted successfully" };
 }
 
-async function updateSharelink(treeId, token, { permission, personLimit, expiresAt }, req) {
+async function updateSharelink(treeId, token, input, req) {
   const parsedTreeId = parseTreeId(treeId);
   await ensureTreeOwnership(parsedTreeId, req.user.id);
-  const expiresAtDate = parseShareExpiry(expiresAt);
   const existing = await prisma.treeShareToken.findFirst({
     where: { treeId: parsedTreeId, token },
     select: { id: true },
@@ -278,13 +278,23 @@ async function updateSharelink(treeId, token, { permission, personLimit, expires
     throw new AppError("Share link not found", 404);
   }
 
+  const data = {};
+  if (Object.prototype.hasOwnProperty.call(input, "permission")) {
+    data.permission = input.permission;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "personLimit")) {
+    data.personLimit = input.personLimit;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "expiresAt")) {
+    data.expiresAt = parseShareExpiry(input.expiresAt);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "isActive")) {
+    data.isActive = input.isActive;
+  }
+
   return prisma.treeShareToken.update({
     where: { id: existing.id },
-    data: {
-      personLimit,
-      permission,
-      expiresAt: expiresAtDate,
-    }
+    data,
   })
 }
 

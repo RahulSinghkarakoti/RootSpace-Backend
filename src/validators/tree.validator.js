@@ -19,6 +19,12 @@ const schemas = {
     personLimit:Joi.number().integer().min(1).optional().allow(null),
     expiresAt: Joi.valid("3m", "6m","12m","never").optional().allow(null),
   }) ,
+  updateShareLink: Joi.object({
+    permission: Joi.string().valid("VIEW_ONLY", "MEDIA_ONLY","ADD_PERSON","CONTRIBUTOR","EDITOR","FULL_ACCESS").optional(),
+    personLimit:Joi.number().integer().min(1).optional().allow(null),
+    expiresAt: Joi.valid("3m", "6m","12m","never").optional().allow(null),
+    isActive: Joi.bool().optional(),
+  }).or("permission", "personLimit", "expiresAt", "isActive"),
 };
 
 /**

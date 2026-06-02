@@ -19,6 +19,16 @@ const login = async (req, res) => {
   sendSuccess(res, "Login successful", result);
 };
 
+const sendPasswordResetEmail = async (req, res) => {
+  await authService.sendPasswordResetEmail(req.body.email, req, res);
+  sendSuccess(res, "Password reset email sent if email exists");
+};
+
+const changePassword = async (req, res) => {
+  const response=await authService.changePassword(req.body.token, req.body.newPassword, req, res);
+  sendSuccess(res, "Password changed successfully",response);
+};
+
 const refreshToken = async (req, res) => {
  const rawToken= req.cookies.refreshToken;
   const result = await authService.refreshTokens(rawToken, req);
@@ -45,6 +55,12 @@ const logoutAll = async (req, res) => {
   await authService.logoutAll(req.user.id, req);
   sendSuccess(res, "Logged out from all devices");
 };
+
+const revokeSession = async (req, res) => {
+  const { sessionId } = req.params;
+  await authService.revokeSession(Number(sessionId), req.user.id, req);
+  sendSuccess(res, "Session revoked successfully");
+}
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────
 
@@ -84,17 +100,17 @@ const me = async (req, res) => {
 };
 
 const sessions = async (req, res) => {
-  const data = await authService.getSessions(req.user.id);
+  const data = await authService.getSessions(req.user.id,req);
   sendSuccess(res, "Active sessions", data);
 };
 
 export default {
   register,
-  login,
+  login,sendPasswordResetEmail,
   refreshToken,
   logout,
   logoutAll,
   oauthCallback,
   me,
-  sessions,
+  sessions,revokeSession,changePassword
 };
