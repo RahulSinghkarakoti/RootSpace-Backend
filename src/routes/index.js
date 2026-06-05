@@ -26,6 +26,11 @@ router.use('/', protect, educationRoutes);
 // router.use('/ocr', protect, ocrRoutes);
 // router.use('/llm', protect, llmRoutes);
  
+// Ping route for quick liveliness check
+router.get('/ping', (_req, res) => {
+  res.json({ success: true, message: 'pong' });
+});
+
 // Health check
 router.get('/health', (_req, res) => {
 
