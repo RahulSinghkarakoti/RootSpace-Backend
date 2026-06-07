@@ -8,6 +8,7 @@ import personRoutes from './person.routes.js';
 import relationRoutes from './relation.routes.js';
 import mediaRoutes from './media.routes.js';
 import educationRoutes from './education.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
 import { protect } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -16,6 +17,7 @@ const router = Router();
 // Future: const llmRoutes  = require('./llm.routes');
 
 router.use('/auth', authRoutes);
+router.use('/dashboard', protect, dashboardRoutes);
 router.use('/shared-trees', protect, sharedTreeRoutes);
 router.use('/trees',protect, treeRoutes);
 router.use('/person', protect, personRoutes);
