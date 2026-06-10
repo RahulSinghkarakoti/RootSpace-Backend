@@ -151,46 +151,13 @@ const savePersonAvatar = async (
   };
 };
 
-const saveBillFile = async (
-  { bytes, height, width, publicId, cloudinaryUrl },
-  req,
-  res,
-) => {
-  let billId = null;
-  try {
-    //save to db
-    const bill = await prisma.$transaction(async (tx) => {
-      // Create the file record first (Bills.fileId FK points to it)
-      const file = await tx.billFiles.create({
-        data: {
-          fileUrl: cloudinaryUrl,
-          cloudinaryId: publicId,
-          fileType: "image",
-          fileSize: bytes,
-        },
-        select: { id: true },
-      });
 
-      // Create the bill record linked to the file
-      return tx.bills.create({
-        data: {
-          userId: req.user.id,
-          source: "IMAGE",
-          status: "QUEUED",
-          fileId: file.id,
-        },
-        select: { id: true },
-      });
-    });
-    billId = bill.id;
-  } catch (error) {
-    if (error.code === "P2002") {
-      throw new AppError("Duplicate file upload detected.", 404);
-    }
-    throw error;
+const deleteCloudinaryImage = async (url) => {
+  const publicId = extractCloudinaryPublicId(url);
+  if (publicId) {
+    await destroyCloudinaryImage(publicId);
   }
+}
 
-  return billId;
-};
 
-export default { getCloudinaryUploadSignature, savePersonAvatar, saveBillFile };
+export default { getCloudinaryUploadSignature, savePersonAvatar, deleteCloudinaryImage };

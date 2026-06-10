@@ -1,6 +1,6 @@
 import prisma from "../config/prisma.js";
 import AppError from "../utils/AppError.js";
-
+import uploadService from "./upload.service.js";
 const parsePersonId = (value) => {
   if (!value || typeof value !== "string") {
     throw new AppError("Invalid person id", 400);
@@ -103,7 +103,12 @@ const updateEducation = async (educationId, input, req) => {
   if (!existing) {
     throw new AppError("Education entry not found", 404);
   }
-
+  if (input.degreeUrl) {
+    const oldDegreeUrl = existing.degreeUrl;
+    if (oldDegreeUrl && oldDegreeUrl !== input.degreeUrl) {
+      await uploadService.deleteCloudinaryImage(oldDegreeUrl);
+    }
+  }
   const payload = buildEducationPayload(input);
   const education = await prisma.educationEntry.update({
     where: { id },
