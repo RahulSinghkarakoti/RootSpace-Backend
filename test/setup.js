@@ -26,7 +26,7 @@ const createMockService = (methods) => ({
   }, {}),
 });
 
-vi.mock('../src/services/tree.service.js', () =>
+vi.mock('../src/features/tree/tree.service.js', () =>
   createMockService([
     'createTree',
     'getAllTrees',
@@ -37,7 +37,7 @@ vi.mock('../src/services/tree.service.js', () =>
   ]),
 );
 
-vi.mock('../src/services/person.service.js', () =>
+vi.mock('../src/features/person/person.service.js', () =>
   createMockService([
     'createPerson',
     'getAllPeople',
@@ -48,7 +48,7 @@ vi.mock('../src/services/person.service.js', () =>
   ]),
 );
 
-vi.mock('../src/services/relation.service.js', () =>
+vi.mock('../src/features/relation/relation.service.js', () =>
   createMockService([
     'createRelation',
     'getTreeRelations',
@@ -58,7 +58,7 @@ vi.mock('../src/services/relation.service.js', () =>
   ]),
 );
 
-vi.mock('../src/services/media.service.js', () =>
+vi.mock('../src/features/media/media.service.js', () =>
   createMockService([
     'createMedia',
     'getTreeMedia',
@@ -68,7 +68,7 @@ vi.mock('../src/services/media.service.js', () =>
   ]),
 );
 
-vi.mock('../src/services/education.service.js', () =>
+vi.mock('../src/features/education/education.service.js', () =>
   createMockService([
     'createEducation',
     'getPersonEducation',

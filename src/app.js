@@ -21,10 +21,10 @@ const app = express();
 
 // ── Trust proxy (required behind Nginx / load balancer) ──────────────────────
 app.set('trust proxy', 1);
-// ── Security headers ──────────────────────────────────────────────────────────
+// ── Security headers ───
 app.use(helmet());
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// ── CORS ────────
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
@@ -43,37 +43,37 @@ app.use(
   })
 );
 
-// ── Body parsing ──────────────────────────────────────────────────────────────
+// ── Body parsing 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// ── Compression ───────────────────────────────────────────────────────────────
+// ── Compression ─
 app.use(compression());
 
-// ── Request logging ───────────────────────────────────────────────────────────
+// ── Request logging 
 app.use(requestLogger);
 
-// ── Passport ──────────────────────────────────────────────────────────────────
+// ── Passport ────
 initPassport();
 app.use(passport.initialize());
 
-// ── Global rate limiter ───────────────────────────────────────────────────────
+// ── Global rate limiter 
 app.use(apiLimiter);
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ── Routes ──────
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 app.use(API_PREFIX, routes);
 
-// ── 404 handler ───────────────────────────────────────────────────────────────
+// ── 404 handler ─
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// ── Global error handler ──────────────────────────────────────────────────────
+// ── Global error handler 
 app.use(errorHandler);
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ── Start ───────
 const PORT = parseInt(process.env.PORT) || 5000;
 
 const start = async () => {
@@ -92,7 +92,7 @@ const start = async () => {
   }
 };
 
-// ── Graceful shutdown ─────────────────────────────────────────────────────────
+// ── Graceful shutdown ──
 const shutdown = async (signal) => {
   logger.info(`${signal} received — shutting down gracefully`);
   await prisma.$disconnect();

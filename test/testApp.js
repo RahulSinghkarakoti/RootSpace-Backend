@@ -36,7 +36,7 @@ const mockController = vi.hoisted(() => ({
 export { mockController };
 
 // Mock the route modules
-vi.mock('../src/routes/tree.routes.js', () => {
+vi.mock('../src/features/tree/tree.routes.js', () => {
   const router = express.Router();
 
   router.post('/', mockController.createTree);
@@ -62,7 +62,7 @@ vi.mock('../src/routes/tree.routes.js', () => {
   return { default: router };
 });
 
-vi.mock('../src/routes/person.routes.js', () => {
+vi.mock('../src/features/person/person.routes.js', () => {
   const router = express.Router();
 
   router.get('/:id', mockController.getPersonById);
@@ -72,7 +72,7 @@ vi.mock('../src/routes/person.routes.js', () => {
   return { default: router };
 });
 
-vi.mock('../src/routes/relation.routes.js', () => {
+vi.mock('../src/features/relation/relation.routes.js', () => {
   const router = express.Router();
 
   router.post('/', mockController.createRelation);
@@ -84,7 +84,7 @@ vi.mock('../src/routes/relation.routes.js', () => {
   return { default: router };
 });
 
-vi.mock('../src/routes/media.routes.js', () => {
+vi.mock('../src/features/media/media.routes.js', () => {
   const router = express.Router();
 
   router.post('/', mockController.createMedia);
@@ -96,7 +96,7 @@ vi.mock('../src/routes/media.routes.js', () => {
   return { default: router };
 });
 
-vi.mock('../src/routes/education.routes.js', () => {
+vi.mock('../src/features/education/education.routes.js', () => {
   const router = express.Router();
 
   router.post('/people/:personId/education', mockController.createEducation);
@@ -108,11 +108,11 @@ vi.mock('../src/routes/education.routes.js', () => {
   return { default: router };
 });
 
-import treeRoutes from '../src/routes/tree.routes.js';
-import personRoutes from '../src/routes/person.routes.js';
-import relationRoutes from '../src/routes/relation.routes.js';
-import mediaRoutes from '../src/routes/media.routes.js';
-import educationRoutes from '../src/routes/education.routes.js';
+import treeRoutes from '../src/features/tree/tree.routes.js';
+import personRoutes from '../src/features/person/person.routes.js';
+import relationRoutes from '../src/features/relation/relation.routes.js';
+import mediaRoutes from '../src/features/media/media.routes.js';
+import educationRoutes from '../src/features/education/education.routes.js';
 
 const createTestApp = () => {
   const app = express();
