@@ -19,7 +19,7 @@ import initPassport from './config/passport.js';
 
 const app = express();
 
-// ── Trust proxy (required behind Nginx / load balancer) ──────────────────────
+// ── Trust proxy (requiredis behind Nginx / load balancer) ──────────────────────
 app.set('trust proxy', 1);
 // ── Security headers ───
 app.use(helmet());

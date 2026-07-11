@@ -1,10 +1,8 @@
 import mediaService from "./media.service.js";
 import { sendSuccess, sendCreated } from "../../utils/response.js";
-import { invalidateMediaCache } from "../../lib/cache.js";
 
 const createMedia = async (req, res) => {
   const result = await mediaService.createMedia(req.params.treeId, req.body, req);
-  await invalidateMediaCache(req.params.treeId);
   sendCreated(res, "Media created successfully", result);
 };
 

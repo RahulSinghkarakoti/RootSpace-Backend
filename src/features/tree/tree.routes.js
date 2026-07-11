@@ -8,7 +8,6 @@ import treeCtrl from "./tree.controller.js";
 import personCtrl from "../person/person.controller.js";
 import relationCtrl from "../relation/relation.controller.js";
 import mediaCtrl from "../media/media.controller.js";
-import { cacheMiddleware } from "../../lib/cache.js";
 
 const router = express.Router();
 
@@ -16,17 +15,15 @@ router.post("/", apiLimiter, treeValidate("createTree"), treeCtrl.createTree);
 router.get(
   "/",
   apiLimiter,
-  cacheMiddleware((req) => `tree:all:${req.user?.id || 'anon'}`, 60),
   treeCtrl.getAllTrees,
 );
 router.get(
   "/collaborations",
   apiLimiter,
-  cacheMiddleware((req) => `tree:collab:${req.user?.id || 'anon'}`, 60),
   treeCtrl.getCollaborations,
 );
-router.get(":id", cacheMiddleware((req) => `tree:id:${req.user?.id || 'anon'}:${req.params.id}`, 60), treeCtrl.getTreeById);
-router.get("/slug/:slug", cacheMiddleware((req) => `tree:slug:${req.user?.id || 'anon'}:${req.params.slug}`, 60), treeCtrl.getTreeBySlug);
+router.get(":id", treeCtrl.getTreeById);
+router.get("/slug/:slug", treeCtrl.getTreeBySlug);
 router.delete("/:id", treeCtrl.deleteTree);
 router.patch(
   "/:id",

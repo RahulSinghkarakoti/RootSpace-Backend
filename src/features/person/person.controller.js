@@ -1,10 +1,8 @@
 import personService from "./person.service.js";
 import { sendSuccess, sendCreated } from "../../utils/response.js";
-import { invalidatePersonCache } from "../../lib/cache.js";
 
 const createPerson = async (req, res) => {
   const result = await personService.createPerson(req.params.treeId, req.body, req);
-  await invalidatePersonCache(req.params.treeId);
   sendCreated(res, "Person added to tree successfully", result);
 };
 
