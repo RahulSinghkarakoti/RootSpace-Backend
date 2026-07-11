@@ -22,7 +22,7 @@ router.get(
   apiLimiter,
   treeCtrl.getCollaborations,
 );
-router.get(":id", treeCtrl.getTreeById);
+router.get("/:id", treeCtrl.getTreeById);
 router.get("/slug/:slug", treeCtrl.getTreeBySlug);
 router.delete("/:id", treeCtrl.deleteTree);
 router.patch(
