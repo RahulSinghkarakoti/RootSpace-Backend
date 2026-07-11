@@ -1,5 +1,6 @@
 import relationService from "./relation.service.js";
 import { sendSuccess, sendCreated } from "../../utils/response.js";
+import { invalidateRelationCache } from "../../lib/cache.js";
 
 const createRelation = async (req, res) => {
   const result = await relationService.createRelation(
@@ -7,6 +8,7 @@ const createRelation = async (req, res) => {
     req.body,
     req,
   );
+  await invalidateRelationCache(req.params.treeId);
   sendCreated(res, "Relation created successfully", result);
 };
 

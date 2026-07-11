@@ -1,6 +1,6 @@
 import prisma from "../../config/prisma.js";
 import AppError from "../../utils/AppError.js";
-import uploadService from "./upload.service.js";
+import uploadService from "../upload/upload.service.js";
 const parsePersonId = (value) => {
   if (!value || typeof value !== "string") {
     throw new AppError("Invalid person id", 400);

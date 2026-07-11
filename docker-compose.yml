@@ -1,12 +1,12 @@
 services:
   api:
     build: .
-    command: npx nodemon -L --watch src src/app.js
+    command: sh -c "npm install --ignore-scripts && npx prisma generate && npx prisma migrate deploy && npx nodemon -L --watch src src/app.js"
     ports:
       - "5000:5000"
     volumes:
       - .:/usr/src/app
-      - /usr/src/app/node_modules
+      - node_modules:/usr/src/app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
@@ -26,8 +26,10 @@ services:
       - AUTH_RATE_LIMIT_MAX=10
       - APP_NAME=FamilyTreeAPI
       - CLIENT_URL=http://localhost:5173
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - db
+      - redis
     networks:
       - family-tree-network
 
@@ -44,8 +46,19 @@ services:
     networks:
       - family-tree-network
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - family-tree-network
+
 volumes:
   postgres_data:
+  redis_data:
+  node_modules:
 
 networks:
   family-tree-network:

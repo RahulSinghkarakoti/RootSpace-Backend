@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.js";
 import AppError from "../../utils/AppError.js";
 import { getTreeShareRights, hasTreeShareRight } from "../../utils/treeSharePermissions.js";
-import personService from "./person.service.js";
+import personService from "../person/person.service.js";
 
 const sanitizeToken = (token) => {
   const value = String(token || "").trim();

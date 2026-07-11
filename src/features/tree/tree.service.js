@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.js";
 import AppError from "../../utils/AppError.js";
 import { generateUniqueTreeSlug } from "../../utils/tree.js";
-import { ensureTreeOwnership } from "./person.service.js";
+import { ensureTreeOwnership } from "../person/person.service.js";
 import crypto from 'crypto';
 
 const parseTreeId = (value) => {

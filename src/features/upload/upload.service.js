@@ -1,12 +1,13 @@
 import crypto from "crypto";
 import prisma from "../../config/prisma.js";
 import AppError from "../../utils/AppError.js";
-import sharedTreeService from "./sharedTree.service.js";
+import sharedTreeService from "../sharedTree/sharedTree.service.js";
 import { hasTreeShareRight } from "../../utils/treeSharePermissions.js";
 
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET;
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+
 
 const getCloudinaryUploadSignature = async (req, res) => {
   const timestamp = Math.round(Date.now() / 1000);

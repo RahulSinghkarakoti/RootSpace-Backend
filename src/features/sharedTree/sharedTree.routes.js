@@ -1,6 +1,6 @@
 import express from "express";
 import { apiLimiter } from "../../middleware/rateLimiter.js";
-import { personValidate } from "./person.validator.js";
+import { personValidate } from "../person/person.validator.js";
 import sharedTreeCtrl from "./sharedTree.controller.js";
 
 const router = express.Router();

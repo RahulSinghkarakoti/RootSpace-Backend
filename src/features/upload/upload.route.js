@@ -4,7 +4,7 @@ import passport from 'passport';
 import ctrl from './upload.controller.js';
 import { protect } from '../../middleware/auth.middleware.js';
 import { authLimiter } from '../../middleware/rateLimiter.js';
-import { validate } from './auth.validator.js';
+import { validate } from '../auth/auth.validator.js';
 const router = express.Router();
 
 

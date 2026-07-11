@@ -1,21 +1,32 @@
 import express from "express";
 import { apiLimiter } from "../../middleware/rateLimiter.js";
 import { treeValidate } from "./tree.validator.js";
-import { personValidate } from "./person.validator.js";
-import { relationValidate } from "./relation.validator.js";
-import { mediaValidate } from "./media.validator.js";
+import { personValidate } from "../person/person.validator.js";
+import { relationValidate } from "../relation/relation.validator.js";
+import { mediaValidate } from "../media/media.validator.js";
 import treeCtrl from "./tree.controller.js";
-import personCtrl from "./person.controller.js";
-import relationCtrl from "./relation.controller.js";
-import mediaCtrl from "./media.controller.js";
+import personCtrl from "../person/person.controller.js";
+import relationCtrl from "../relation/relation.controller.js";
+import mediaCtrl from "../media/media.controller.js";
+import { cacheMiddleware } from "../../lib/cache.js";
 
 const router = express.Router();
 
 router.post("/", apiLimiter, treeValidate("createTree"), treeCtrl.createTree);
-router.get("/", apiLimiter, treeCtrl.getAllTrees);
-router.get('/collaborations', apiLimiter, treeCtrl.getCollaborations);
-router.get("/:id", treeCtrl.getTreeById);
-router.get("/slug/:slug", treeCtrl.getTreeBySlug);
+router.get(
+  "/",
+  apiLimiter,
+  cacheMiddleware((req) => `tree:all:${req.user?.id || 'anon'}`, 60),
+  treeCtrl.getAllTrees,
+);
+router.get(
+  "/collaborations",
+  apiLimiter,
+  cacheMiddleware((req) => `tree:collab:${req.user?.id || 'anon'}`, 60),
+  treeCtrl.getCollaborations,
+);
+router.get(":id", cacheMiddleware((req) => `tree:id:${req.user?.id || 'anon'}:${req.params.id}`, 60), treeCtrl.getTreeById);
+router.get("/slug/:slug", cacheMiddleware((req) => `tree:slug:${req.user?.id || 'anon'}:${req.params.slug}`, 60), treeCtrl.getTreeBySlug);
 router.delete("/:id", treeCtrl.deleteTree);
 router.patch(
   "/:id",
