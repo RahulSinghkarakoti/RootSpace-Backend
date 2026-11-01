@@ -7,7 +7,7 @@ import {
   generatePasswordResetToken,
   generateAccessToken,
   generateRefreshToken,
-  hashToken, verifyPasswordResetToken
+  hashToken, verifyPasswordResetToken,
 } from "../../utils/token.js";
 import AppError from "../../utils/AppError.js";
 import { audit } from "../../utils/audit.js";
@@ -80,7 +80,10 @@ const register = async ({ firstName, lastName, email, password }, req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
   });
 
-  const { refreshToken, ...safeTokens } = tokens;
+  const safeTokens = {
+    accessToken: tokens.accessToken,
+    expiresAt: tokens.expiresAt,
+  };
 
   return {
     user: sanitizeUser(user),
@@ -123,7 +126,10 @@ const login = async ({ email, password }, req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 10 hours
   });
 
-  const { refreshToken, ...safeTokens } = tokens;
+  const safeTokens = {
+    accessToken: tokens.accessToken,
+    expiresAt: tokens.expiresAt,
+  };
 
   return {
     user: sanitizeUser(user),
@@ -199,7 +205,7 @@ const oauthUpsert = async (
   req,
 ) => {
   // Check if provider record exists
-  let oauthRecord = await prisma.oAuthProviderRecord.findUnique({
+  const oauthRecord = await prisma.oAuthProviderRecord.findUnique({
     where: { provider_providerId: { provider, providerId } },
     include: { user: true },
   });
@@ -216,6 +222,16 @@ const oauthUpsert = async (
       user = await prisma.user.create({
         data: { email, firstName, lastName, avatarUrl, isVerified: true },
       });
+    } else {
+      const updateData = {};
+      if (!user.isVerified) updateData.isVerified = true;
+      if (!user.avatarUrl && avatarUrl) updateData.avatarUrl = avatarUrl;
+      if (Object.keys(updateData).length > 0) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+      }
     }
 
     await prisma.oAuthProviderRecord.create({
@@ -250,27 +266,27 @@ const getSessions = async (userId, req) => {
     orderBy: { createdAt: "desc" },
   });
 
-  const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress
-  const deviceInfo = req.headers["user-agent"]
+  const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const deviceInfo = req.headers["user-agent"];
 
   return sessions.map((s) => ({
     ...s,
     isCurrent: s.ipAddress === ipAddress && s.deviceInfo === deviceInfo,
-  }))
+  }));
 };
 
-async function sendPasswordResetEmail(email, req, res) {
+async function sendPasswordResetEmail(email, _req, _res) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return; // Don't reveal if email exists 
   const exisitingToken = await prisma.PasswordReset.findFirst({
-    where: { userId: user.id, expiresAt: { gte: new Date() } }
-  })
-  let token = exisitingToken?.tokenHash
+    where: { userId: user.id, expiresAt: { gte: new Date() } },
+  });
+  let token = exisitingToken?.tokenHash;
   if (!exisitingToken?.id) {
     token = generatePasswordResetToken(user.id, user.email);
     const expiresAt = new Date();
     expiresAt.setHours(
-      expiresAt.getHours() + Number(process.env.RESET_TOKEN_EXPIRY_HOURS)
+      expiresAt.getHours() + Number(process.env.RESET_TOKEN_EXPIRY_HOURS),
     );
 
     await prisma.PasswordReset.create({
@@ -283,21 +299,24 @@ async function sendPasswordResetEmail(email, req, res) {
 
   }
   await sendPasswordResetEmailTemplate(
-    user.email, user.firstName, token, "PASSWORD_RESET"
+    user.email, user.firstName, token, "PASSWORD_RESET",
   );
-  return
+  return;
 
 }
 
 async function revokeSession(sessionId, userId, req) {
-  await prisma.refreshToken.update({
+  const result = await prisma.refreshToken.updateMany({
     where: { id: sessionId, userId },
     data: { revoked: true, revokedAt: new Date() },
   });
+  if (result.count === 0) {
+    throw new AppError("Session not found", 404);
+  }
   await audit({ userId, action: "REVOKE_SESSION", req });
 }
 
-async function changePassword(token, newPassword, req, res) {
+async function changePassword(token, newPassword, req, _res) {
   const resetRecord = await prisma.PasswordReset.findFirst({
     where: { tokenHash: token, expiresAt: { gte: new Date() } },
     include: { user: true },
@@ -331,7 +350,7 @@ async function changePassword(token, newPassword, req, res) {
     entityId: user.id,
     req,
   });
-  return {email: user.email}
+  return {email: user.email};
 }
 
 export default {
@@ -341,5 +360,5 @@ export default {
   logout,
   logoutAll,
   oauthUpsert,
-  getSessions, revokeSession, changePassword
+  getSessions, revokeSession, changePassword,
 };

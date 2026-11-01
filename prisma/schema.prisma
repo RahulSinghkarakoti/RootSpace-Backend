@@ -30,6 +30,7 @@ enum TreeType {
 enum RelationType {
   PARENT_OF 
   SPOUSE_OF
+  SIBLING_OF
 }
 
 enum EducationLevel {
@@ -184,7 +185,7 @@ model PersonLayout {
   width Float?
   height Float?
 
-  person Person @relation(fields:[personId], references:[id])
+  person Person @relation(fields:[personId], references:[id], onDelete: Cascade)
   @@map("person_layout")
 
 }

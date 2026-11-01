@@ -45,5 +45,5 @@ export default {
   getSharedTreeData,
   createSharedPerson,
   updateSharedPerson,
-  deleteSharedPerson,getAllSharedTrees
+  deleteSharedPerson,getAllSharedTrees,
 };

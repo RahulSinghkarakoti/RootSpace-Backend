@@ -4,5 +4,6 @@ logs/
 .history/
 dist/
 coverage/
+graphify-out/
 .DS_Store
 *.log

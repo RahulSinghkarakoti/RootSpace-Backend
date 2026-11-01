@@ -1,5 +1,6 @@
 // src/validators/auth.validator.js
 import Joi from "joi";
+import { createValidator } from "../../middleware/validate.js";
 
 const password = Joi.string()
   .min(8)
@@ -9,27 +10,15 @@ const password = Joi.string()
     "string.pattern.base":
       "Password must contain uppercase, lowercase, number, and special character",
   });
-const allowedDomains = ["gmail.com", "rootspace.app"];
 
 const email = Joi.string()
   .email({ tlds: { allow: false } })
-  .lowercase()
-  .custom((value, helpers) => {
-    const domain = value.split("@")[1];
-    return allowedDomains.includes(domain)
-      ? value
-      : helpers.error("any.invalid");
-  }) 
-  .messages({
-    "any.invalid": "Email domain is not allowed",
-  })
-
-
+  .lowercase();
 
 const schemas = {
   register: Joi.object({
     firstName: Joi.string().trim().min(1).max(100).required(),
-    lastName: Joi.string().trim().min(1).max(100).required(),
+    lastName: Joi.string().trim().min(1).max(100).default("").optional(),
     email: email.required(),
     password: password.required(),
   }),
@@ -37,7 +26,7 @@ const schemas = {
   login: Joi.object({
     email: email.required(),
     password: Joi.string().required(),
-  }), 
+  }),
   refreshToken: Joi.object({
     refreshToken: Joi.string().required(),
   }),
@@ -72,30 +61,4 @@ const schemas = {
   }),
 };
 
-/**
- * Middleware factory — validates req.body against named schema.
- */
-const validate = (schemaName) => (req, res, next) => {
-  const schema = schemas[schemaName];
-  if (!schema) return next();
-
-  const { error, value } = schema.validate(req.body, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-
-  if (error) {
-    const errors = error.details.map((d) => ({
-      field: d.path.join("."),
-      message: d.message,
-    }));
-    return res
-      .status(400)
-      .json({ success: false, message: "Validation failed", errors });
-  }
-
-  req.body = value; // use sanitised values
-  next();
-};
-
-export { validate };
+export const validate = createValidator(schemas);

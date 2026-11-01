@@ -6,7 +6,7 @@ import path from  'path';
 const { combine, timestamp, printf, colorize, errors } = format;
 
 const logFormat = printf(({ level, message, timestamp, stack }) =>
-  `${timestamp} [${level.toUpperCase()}]: ${stack || message}`
+  `${timestamp} [${level.toUpperCase()}]: ${stack || message}`,
 );
 
 const logger = createLogger({

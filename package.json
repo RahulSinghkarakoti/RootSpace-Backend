@@ -27,8 +27,6 @@
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
     "@prisma/config": "^7.4.1",
-    "@react-email/components": "^1.0.12",
-    "@react-email/render": "^2.0.8",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
@@ -44,9 +42,6 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.18.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-email": "^6.5.0",
     "resend": "^6.12.4",
     "slugify": "^1.6.9",
     "uuid": "^9.0.0",
@@ -56,9 +51,7 @@
   "devDependencies": {
     "@types/pg": "^8.16.0",
     "eslint": "^8.55.0",
-    "install": "^0.13.0",
     "nodemon": "^3.0.2",
-    "npm": "^11.10.1",
     "prisma": "^7.4.1",
     "supertest": "^6.3.3",
     "vitest": "^1.4.4"

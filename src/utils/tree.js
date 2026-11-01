@@ -6,15 +6,15 @@ async function generateUniqueTreeSlug(name) {
   const baseSlug = slugify(name, {
     lower: true,
     strict: true,
-    trim: true
+    trim: true,
   });
 
   let slug = baseSlug;
   let counter = 1;
-// eslint-disable-next-line no-constant-condition
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const existing = await prisma.trees.findUnique({
-      where: { slug }
+      where: { slug },
     });
 
     if (!existing) return slug;
@@ -33,7 +33,7 @@ async function generateUniquePersonSlug(treeId, name) {
 
   let slug = baseSlug;
   let counter = 1;
-// eslint-disable-next-line no-constant-condition
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const existing = await prisma.person.findFirst({
       where: {
@@ -50,6 +50,6 @@ async function generateUniquePersonSlug(treeId, name) {
 }
 
 export   {
-    generateUniqueTreeSlug,
-    generateUniquePersonSlug,
-}
+  generateUniqueTreeSlug,
+  generateUniquePersonSlug,
+};

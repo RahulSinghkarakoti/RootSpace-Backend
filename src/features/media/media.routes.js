@@ -1,12 +1,11 @@
 import express from "express";
-import { apiLimiter } from "../../middleware/rateLimiter.js";
 import { mediaValidate } from "./media.validator.js";
 import ctrl from "./media.controller.js";
 
 const router = express.Router();
 
-router.get("/:id", apiLimiter, ctrl.getMediaById);
-router.patch("/:id", apiLimiter, mediaValidate("updateMedia"), ctrl.updateMedia);
-router.delete("/:id", apiLimiter, ctrl.deleteMedia);
+router.get("/:id", ctrl.getMediaById);
+router.patch("/:id", mediaValidate("updateMedia"), ctrl.updateMedia);
+router.delete("/:id", ctrl.deleteMedia);
 
 export default router;

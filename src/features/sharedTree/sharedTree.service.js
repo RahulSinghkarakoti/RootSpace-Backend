@@ -27,7 +27,7 @@ const buildUpdatePayload = (input) => {
   return payload;
 };
 
-async function verifyShareToken(token, req) {
+async function verifyShareToken(token, req, { autoJoin = false } = {}) {
   const shareToken = await prisma.treeShareToken.findUnique({
     where: { token: sanitizeToken(token) },
     include: {
@@ -52,29 +52,49 @@ async function verifyShareToken(token, req) {
     throw new AppError("Share link has expired", 410);
   }
 
-  const member = await prisma.treeShareMember.upsert({
-    where: {
-      tokenId_userId: {
+  let member = null;
+  if (autoJoin && req.user?.id) {
+    member = await prisma.treeShareMember.upsert({
+      where: {
+        tokenId_userId: {
+          tokenId: shareToken.id,
+          userId: req.user.id,
+        },
+      },
+      create: {
         tokenId: shareToken.id,
         userId: req.user.id,
       },
-    },
-    create: {
-      tokenId: shareToken.id,
-      userId: req.user.id,
-    },
-    update: {
-      updatedAt: new Date(),
-    },
-    select: {
-      id: true,
-      tokenId: true,
-      userId: true,
-      addedPersonsCount: true,
-      joinedAt: true,
-      updatedAt: true,
-    },
-  });
+      update: {
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        tokenId: true,
+        userId: true,
+        addedPersonsCount: true,
+        joinedAt: true,
+        updatedAt: true,
+      },
+    });
+  } else if (req.user?.id) {
+    member = await prisma.treeShareMember.findUnique({
+      where: {
+        tokenId_userId: {
+          tokenId: shareToken.id,
+          userId: req.user.id,
+        },
+      },
+      select: {
+        id: true,
+        tokenId: true,
+        userId: true,
+        addedPersonsCount: true,
+        joinedAt: true,
+        updatedAt: true,
+      },
+    });
+  }
 
   return {
     token: shareToken.token,
@@ -88,7 +108,7 @@ async function verifyShareToken(token, req) {
 }
 
 async function getSharedTreeData(token, req) {
-  const access = await verifyShareToken(token, req);
+  const access = await verifyShareToken(token, req, { autoJoin: false });
   const [people, relations, media] = await Promise.all([
     prisma.person.findMany({
       where: { treeId: access.tree.id },
@@ -129,7 +149,7 @@ async function getSharedTreeData(token, req) {
 }
 
 async function createSharedPerson(token, input, req) {
-  const access = await verifyShareToken(token, req);
+  const access = await verifyShareToken(token, req, { autoJoin: true });
   if (!hasTreeShareRight(access.permission, "add_person")) {
     throw new AppError("This share link does not allow adding people", 403);
   }
@@ -155,7 +175,7 @@ async function createSharedPerson(token, input, req) {
 }
 
 async function updateSharedPerson(token, personId, input, req) {
-  const access = await verifyShareToken(token, req);
+  const access = await verifyShareToken(token, req, { autoJoin: true });
   const canEditAny = hasTreeShareRight(access.permission, "edit_any");
   const canEditOwn = hasTreeShareRight(access.permission, "edit_own");
 
@@ -179,7 +199,7 @@ async function updateSharedPerson(token, personId, input, req) {
     throw new AppError("Person not found", 404);
   }
 
-  if (!canEditAny && existing.createdByMemberId !== access.member.id) {
+  if (!canEditAny && existing.createdByMemberId !== access.member?.id) {
     throw new AppError("This share link can only edit people added through your membership", 403);
   }
 
@@ -205,7 +225,7 @@ async function updateSharedPerson(token, personId, input, req) {
   }).then(normalizePerson);
 }
 async function deleteSharedPerson(token, personId, req) {
-  const access = await verifyShareToken(token, req);
+  const access = await verifyShareToken(token, req, { autoJoin: true });
   const canEditAny = hasTreeShareRight(access.permission, "edit_any");
   const canEditOwn = hasTreeShareRight(access.permission, "edit_own");
 
@@ -251,7 +271,7 @@ async function deleteSharedPerson(token, personId, req) {
   };
 }
 async function getAllSharedTrees(req) {
-  let sharedTrees = await prisma.treeShareToken.findMany({
+  const sharedTrees = await prisma.treeShareToken.findMany({
     where: {
       OR: [
         { expiresAt: { gt: new Date() } },
@@ -267,7 +287,7 @@ async function getAllSharedTrees(req) {
 
   return sharedTrees.map((share) => ({
     ...share,
-    link: `${process.env.FRONTEND_URL}/shared?token=${share.token}`
+    link: `${process.env.FRONTEND_URL}/shared?token=${share.token}`,
   }));
 }
 export default {
@@ -275,5 +295,5 @@ export default {
   getSharedTreeData,
   createSharedPerson,
   updateSharedPerson,
-  deleteSharedPerson, getAllSharedTrees
+  deleteSharedPerson, getAllSharedTrees,
 };

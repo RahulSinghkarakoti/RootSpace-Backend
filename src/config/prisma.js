@@ -7,7 +7,15 @@ import logger from '../utils/logger.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const isRemoteDb =
+  process.env.DATABASE_URL &&
+  !process.env.DATABASE_URL.includes('localhost') &&
+  !process.env.DATABASE_URL.includes('127.0.0.1');
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined,
+});
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = global;

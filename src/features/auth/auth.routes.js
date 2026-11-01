@@ -13,26 +13,26 @@ const router = express.Router();
 router.post('/register',
   authLimiter,
   validate('register'),
-  ctrl.register
+  ctrl.register,
 );
 
 // POST /auth/login
 router.post('/login',
   authLimiter,
   validate('login'),
-  ctrl.login
+  ctrl.login,
 );
 
 router.post('/send-password-reset-email',
   authLimiter,
   validate('sendPasswordResetEmail'), 
-  ctrl.sendPasswordResetEmail
+  ctrl.sendPasswordResetEmail,
 );
 
 router.post('/change-password',
   authLimiter,
   validate('changePassword'),
-  ctrl.changePassword
+  ctrl.changePassword,
 );
 
 // POST /auth/refresh
@@ -40,24 +40,24 @@ router.post('/change-password',
 router.post('/refresh',
   authLimiter,
   validate('refreshToken'),
-  ctrl.refreshToken
+  ctrl.refreshToken,
 );
 
 // POST /auth/logout  (requires valid access token)
 router.post('/logout',
   protect,
-  ctrl.logout
+  ctrl.logout,
 );
 
 // POST /auth/logout-all
 router.post('/logout-all',
   protect,
-  ctrl.logoutAll
+  ctrl.logoutAll,
 );
 
 router.post('/revoke-session/:sessionId',
   protect,
-  ctrl.revokeSession
+  ctrl.revokeSession,
 );
 
 // ── OAuth — Google ───────────────────────────────────────────────────────────
@@ -67,17 +67,24 @@ router.get('/google',
   passport.authenticate('google', {
     scope: ['profile', 'email'],
     session: false,
-  })
+  }),
 );
 
 // GET /auth/google/callback  → Google redirects here after consent
 router.get('/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/api/v1/auth/google/failed' }),
-  ctrl.oauthCallback
+  (req, res, next) => {
+    const frontendUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+    passport.authenticate('google', {
+      session: false,
+      failureRedirect: `${frontendUrl}/login?error=google_auth_failed`,
+    })(req, res, next);
+  },
+  ctrl.oauthCallback,
 );
 
 router.get('/google/failed', (_req, res) => {
-  res.status(401).json({ success: false, message: 'Google authentication failed' });
+  const frontendUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+  res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
 });
 
 // ── Protected ─────────────────────────────────────────────────────────────────

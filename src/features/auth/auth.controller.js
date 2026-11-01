@@ -3,7 +3,6 @@ import authService from "./auth.service.js";
 import {
   sendSuccess,
   sendCreated,
-  sendBadRequest,
   sendError,
 } from "../../utils/response.js";
 
@@ -30,10 +29,10 @@ const changePassword = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
- const rawToken= req.cookies.refreshToken;
+  const rawToken= req.cookies.refreshToken;
   const result = await authService.refreshTokens(rawToken, req);
   const { refreshToken,user, ...safeTokens } = result;
- res.cookie("refreshToken", refreshToken, {
+  res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production", // don't force true in dev
     sameSite: "lax", // or "lax" depending on your flow
@@ -46,13 +45,23 @@ const refreshToken = async (req, res) => {
 };
 
 const logout = async (req, res) => {
-  const { refreshToken } = req.body;
-  await authService.logout(refreshToken, req.user.id, req);
+  const rawToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  await authService.logout(rawToken, req.user.id, req);
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
   sendSuccess(res, "Logged out successfully");
 };
 
 const logoutAll = async (req, res) => {
   await authService.logoutAll(req.user.id, req);
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
   sendSuccess(res, "Logged out from all devices");
 };
 
@@ -60,7 +69,7 @@ const revokeSession = async (req, res) => {
   const { sessionId } = req.params;
   await authService.revokeSession(Number(sessionId), req.user.id, req);
   sendSuccess(res, "Session revoked successfully");
-}
+};
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────
 
@@ -69,27 +78,32 @@ const revokeSession = async (req, res) => {
  * req.oauthUser is set by the Passport strategy callback.
  */
 const oauthCallback = async (req, res) => {
-  if (!req.oauthUser) {
-    return sendError(res, 500, "OAuth authentication failed");
-  }
-  const result = await authService.oauthUpsert(req.oauthUser, req);
-  const { refreshToken, ...safeTokens } = result;
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-
   const frontendUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173";
-  const callbackUrl = new URL("/auth/google/callback", frontendUrl);
-  callbackUrl.searchParams.set(
-    "payload",
-    Buffer.from(JSON.stringify(safeTokens)).toString("base64url")
-  );
+  try {
+    if (!req.oauthUser) {
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
+    const result = await authService.oauthUpsert(req.oauthUser, req);
+    const { refreshToken, ...safeTokens } = result;
 
-  res.redirect(callbackUrl.toString());
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const callbackUrl = new URL("/auth/google/callback", frontendUrl);
+    callbackUrl.searchParams.set(
+      "payload",
+      Buffer.from(JSON.stringify(safeTokens)).toString("base64url"),
+    );
+
+    res.redirect(callbackUrl.toString());
+  } catch (err) {
+    const errorParam = err.statusCode === 403 ? "account_disabled" : "google_auth_failed";
+    res.redirect(`${frontendUrl}/login?error=${errorParam}`);
+  }
 };
 
 // ── Profile / Sessions ────────────────────────────────────────────────────────
@@ -112,5 +126,5 @@ export default {
   logoutAll,
   oauthCallback,
   me,
-  sessions,revokeSession,changePassword
+  sessions,revokeSession,changePassword,
 };

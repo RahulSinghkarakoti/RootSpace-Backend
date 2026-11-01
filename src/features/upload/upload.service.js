@@ -9,14 +9,14 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
 
 
-const getCloudinaryUploadSignature = async (req, res) => {
+const getCloudinaryUploadSignature = async (req, _res) => {
   const timestamp = Math.round(Date.now() / 1000);
   // Allow client to request signatures scoped to a specific person and type (avatar/media)
   const personId = req.query.personId;
   const type = req.query.type || 'avatar'; // 'avatar' or 'media'
   const shareToken = req.query.shareToken;
 
-  let folderBase = type === 'media' ? 'media' : 'avatars';
+  const folderBase = type === 'media' ? 'media' : 'avatars';
   let folder = `${folderBase}/${req.user.id}`;
 
   // If a personId is provided, validate ownership and include it in the folder path
@@ -113,7 +113,7 @@ const destroyCloudinaryImage = async (publicId) => {
 const savePersonAvatar = async (
   { personId, publicId, cloudinaryUrl, shareToken },
   req,
-  res,
+  _res,
 ) => {
   const person = await findPersonForAvatarAccess(personId, req, shareToken);
 
@@ -158,7 +158,7 @@ const deleteCloudinaryImage = async (url) => {
   if (publicId) {
     await destroyCloudinaryImage(publicId);
   }
-}
+};
 
 
 export default { getCloudinaryUploadSignature, savePersonAvatar, deleteCloudinaryImage };

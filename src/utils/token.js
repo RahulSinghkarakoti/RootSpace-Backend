@@ -17,7 +17,7 @@ const generateAccessToken = (user) =>
       type: 'access',
     },
     process.env.JWT_ACCESS_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m', issuer: process.env.APP_NAME || 'AuthServer' }
+    { expiresIn: process.env.JWT_ACCESS_EXPIRES || '15m', issuer: process.env.APP_NAME || 'AuthServer' },
   );
 
 /**
@@ -63,19 +63,19 @@ const getAccessTokenExpiry = () => {
 };
 
 const generatePasswordResetToken = (userId, email) => {
- return jwt.sign(
+  return jwt.sign(
     {
       userId,
       email,
     },
     process.env.PASSWORD_RESET_SECRET,
-    { expiresIn: `${process.env.RESET_TOKEN_EXPIRY_HOURS || '2'}h`, issuer: process.env.APP_NAME || 'AuthServer' }
+    { expiresIn: `${process.env.RESET_TOKEN_EXPIRY_HOURS || '2'}h`, issuer: process.env.APP_NAME || 'AuthServer' },
   );
-}
+};
 
 const verifyPasswordResetToken = (token) => {
   return jwt.verify(token, process.env.PASSWORD_RESET_SECRET);
-}
+};
 
 export {
   generateAccessToken,

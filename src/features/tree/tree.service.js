@@ -17,19 +17,19 @@ const parseShareExpiry = (expiresAt) => {
   const now = new Date();
 
   switch (expiresAt) {
-    case "3m":
-      return new Date(now.setMonth(now.getMonth() + 3));
-    case "6m":
-      return new Date(now.setMonth(now.getMonth() + 6));
-    case "12m":
-      return new Date(now.setMonth(now.getMonth() + 12));
-    default: {
-      const parsed = new Date(expiresAt);
-      if (Number.isNaN(parsed.getTime())) {
-        throw new AppError("Invalid share expiry", 400);
-      }
-      return parsed;
+  case "3m":
+    return new Date(now.setMonth(now.getMonth() + 3));
+  case "6m":
+    return new Date(now.setMonth(now.getMonth() + 6));
+  case "12m":
+    return new Date(now.setMonth(now.getMonth() + 12));
+  default: {
+    const parsed = new Date(expiresAt);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new AppError("Invalid share expiry", 400);
     }
+    return parsed;
+  }
   }
 };
 
@@ -71,7 +71,7 @@ const getAllTrees = async (req) => {
   const sharredLinks = await prisma.treeShareToken.findMany({
     where: {
       treeId: {
-        in: allTrees.map(tree => tree.id)
+        in: allTrees.map(tree => tree.id),
       },
     },
   });
@@ -85,7 +85,7 @@ const getAllTrees = async (req) => {
       expiresAt: link.expiresAt,
       isActive: link.isActive,
       token: link.token,
-      link: `${process.env.FRONTEND_URL}/shared?token=${link.token}`
+      link: `${process.env.FRONTEND_URL}/shared?token=${link.token}`,
     }));
   });
   return allTrees;
@@ -181,7 +181,6 @@ const updateTree = async (treeId, input, req) => {
   const data = {};
   if (Object.prototype.hasOwnProperty.call(input, "treeName")) {
     data.name = input.treeName;
-    data.slug = await generateUniqueTreeSlug(input.treeName);
   }
   if (Object.prototype.hasOwnProperty.call(input, "type")) {
     data.type = input.type;
@@ -227,7 +226,7 @@ async function generateShareLink(treeId, { permission, personLimit = 10, expires
   });
   return {
     ...newShareTokenEntry,
-    link: `${process.env.FRONTEND_URL}/shared?token=${shareId}`
+    link: `${process.env.FRONTEND_URL}/shared?token=${shareId}`,
   };
 }
 
@@ -295,7 +294,7 @@ async function updateSharelink(treeId, token, input, req) {
   return prisma.treeShareToken.update({
     where: { id: existing.id },
     data,
-  })
+  });
 }
 
 async function getCollaborations(req) {
@@ -317,11 +316,11 @@ async function getCollaborations(req) {
               id: true,
               name: true,
               slug: true,
-            }
-          }
-        }
-      }
-    }
+            },
+          },
+        },
+      },
+    },
   });
   return collaborations.map(collab => ({
     id: collab.id,
@@ -330,9 +329,9 @@ async function getCollaborations(req) {
     personLimit: collab.token.personLimit,
     expiresAt: collab.token.expiresAt,
     tree: collab.token.tree,
-    link: `${process.env.FRONTEND_URL}/shared?token=${collab.token.token}`
+    link: `${process.env.FRONTEND_URL}/shared?token=${collab.token.token}`,
 
-  }))
+  }));
 }
 export default {
   createTree,
@@ -345,5 +344,5 @@ export default {
   getTreeById,
   updateTree,
   updateSharelink,
-  getCollaborations
+  getCollaborations,
 };

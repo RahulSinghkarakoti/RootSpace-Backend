@@ -1,6 +1,6 @@
 // src/controllers/auth.controller.js
 import uploadService from "./upload.service.js";
-import { sendSuccess, sendError, sendCreated } from "../../utils/response.js";
+import { sendSuccess, sendCreated } from "../../utils/response.js";
 
 const getSignature = async (req, res) => {
   const result = await uploadService.getCloudinaryUploadSignature(req, res);

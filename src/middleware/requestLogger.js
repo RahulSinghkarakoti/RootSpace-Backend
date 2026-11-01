@@ -7,7 +7,7 @@ const stream = { write: (msg) => logger.http(msg.trim()) };
 
 const requestLogger = morgan(
   ':remote-addr :method :url :status :res[content-length] - :response-time ms',
-  { stream }
+  { stream },
 );
 
 export default requestLogger;

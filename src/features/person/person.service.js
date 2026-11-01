@@ -23,15 +23,6 @@ const parseTreeId = (value) => {
   return id;
 };
 
-const getReverseRelationType = (type) => {
-  const reverseMap = {
-    PARENT_OF: 'PARENT_OF',
-    SPOUSE_OF: 'SPOUSE_OF',
-    SIBLING_OF: 'SIBLING_OF',
-  };
-  return reverseMap[type] || type;
-};
-
 const buildCreatePayload = (input) => ({
   fullName: input.fullName,
   gender: input.gender || null,
@@ -64,7 +55,7 @@ const createPerson = async (treeId, input, req) => {
   ) {
     throw new AppError("Person limit reached for this share link", 403);
   }
-  let unknownSpouse = null;
+  const unknownSpouse = null;
   // ── Validate relation targets BEFORE creating anything ──────────────────
   if (input.relations?.length > 0) {
     const toIds = [...new Set(input.relations.map(r => r.toId))];
@@ -140,6 +131,19 @@ const createPerson = async (treeId, input, req) => {
             isActive,
           });
         }
+      } else if (type === 'SIBLING_OF') {
+        const [a, b] = [fromId, toId].sort();
+        const key = `${a}|${b}|SIBLING_OF`;
+        if (!relMap.has(key)) {
+          relMap.set(key, {
+            treeId: parsedTreeId,
+            fromId: a,
+            toId: b,
+            type: 'SIBLING_OF',
+            metadata,
+            isActive,
+          });
+        }
       }
     };
 
@@ -161,20 +165,21 @@ const createPerson = async (treeId, input, req) => {
         // new person is the PARENT, rel.toId is the CHILD
         // So: newPerson -> child
         addRel(newPerson.id, rel.toId, 'PARENT_OF', meta, active);
+
+      } else if (rel.type === 'SIBLING_OF') {
+        addRel(newPerson.id, rel.toId, 'SIBLING_OF', meta, active);
       }
     }
 
     // ── Auto-link: if new person is added as CHILD of a parent,
-    //    ensure child has 2 parents by auto-creating unknown spouse ───────
+    //    link existing spouse as second parent if one exists (no phantom creation) ───────
     const parentOfNewPerson = input.relations
       .filter(r => r.type === 'PARENT_OF') // toId = parent
       .map(r => r.toId);
 
     if (parentOfNewPerson.length > 0) {
-
       for (const parentId of parentOfNewPerson) {
-
-        // Find spouse of this parent
+        // Find existing spouse of this parent
         const spouseRel = await tx.relation.findFirst({
           where: {
             treeId: parsedTreeId,
@@ -186,70 +191,11 @@ const createPerson = async (treeId, input, req) => {
           },
         });
 
-        let secondParentId = null;
-
-        // Existing spouse found
         if (spouseRel) {
-
-          secondParentId =
+          const secondParentId =
             spouseRel.fromId === parentId
               ? spouseRel.toId
               : spouseRel.fromId;
-
-        } else {
-
-          // ── No spouse exists → create unknown spouse ───────────────────
-          const parent = await tx.person.findUnique({
-            where: { id: parentId },
-            select: {
-              id: true,
-              gender: true,
-              fullName: true,
-            },
-          });
-
-          const unknownSlug = await generateUniquePersonSlug(
-            parsedTreeId,
-            'Unknown'
-          );
-
-          unknownSpouse = await tx.person.create({
-            data: {
-              treeId: parsedTreeId,
-              createdByMemberId: shareAccess?.memberId ?? null,
-              slug: unknownSlug,
-              fullName: 'Unknown',
-              gender:
-                parent?.gender === 'male'
-                  ? 'female'
-                  : parent?.gender === 'female'
-                    ? 'male'
-                    : 'unknown',
-            },
-            select: {
-              id: true,
-              slug: true,
-              fullName: true,
-              gender: true,
-              birthDate: true,
-              birthPlace: true,
-              deathDate: true,
-              notes: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          });
-
-          secondParentId = unknownSpouse.id;
-
-          // Connect parent ↔ unknown spouse
-          addRel(parentId, unknownSpouse.id, 'SPOUSE_OF');
-
-
-        }
-
-        // Connect second parent → new child
-        if (secondParentId) {
 
           const alreadyLinked = await tx.relation.findFirst({
             where: {
@@ -262,7 +208,6 @@ const createPerson = async (treeId, input, req) => {
 
           if (!alreadyLinked) {
             addRel(secondParentId, newPerson.id, 'PARENT_OF');
-
           }
         }
       }
@@ -338,7 +283,7 @@ const createPerson = async (treeId, input, req) => {
           });
 
           // Remove placeholder spouse
-          if (unknownPerson?.fullName === 'Unknown Spouse') {
+          if (unknownPerson?.fullName === 'Unknown' || unknownPerson?.fullName === 'Unknown Spouse') {
 
             await tx.relation.deleteMany({
               where: {
@@ -369,7 +314,7 @@ const createPerson = async (treeId, input, req) => {
 
     // ── Insert all relations (skipDuplicates as safety net) ───────────────
     const relationsData = [...relMap.values()];
-    let newRelations = []
+    let newRelations = [];
     if (relationsData.length > 0) {
       console.log(`Creating ${relationsData.length} relations for person ${newPerson.id}`);
       newRelations = await tx.relation.createManyAndReturn({
@@ -503,7 +448,7 @@ const deletePerson = async (personId, req) => {
         {
           createdByMember: {
             userId: req.user.id ?? null,
-          }
+          },
         },
       ],
     },
@@ -514,13 +459,13 @@ const deletePerson = async (personId, req) => {
   }
 
   if (existing.createdByMemberId) {
-    const shareAccess = await prisma.treeShareMember.update({
+    await prisma.treeShareMember.update({
       where: {
-        id: existing.createdByMemberId
+        id: existing.createdByMemberId,
       },
       data: {
-        addedPersonsCount: { decrement: 1 }
-      }
+        addedPersonsCount: { decrement: 1 },
+      },
     });
   }
 

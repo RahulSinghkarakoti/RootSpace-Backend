@@ -1,193 +1,75 @@
-// PasswordResetEmail.js
-// Pure React.createElement — no JSX, no Babel needed. Works in plain Node/Express.
-
-import React from "react";
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
-
-const e = React.createElement;
+// emails/PasswordResetEmail.js
+// Pure HTML email template — zero external dependencies, works directly in Node/Express.
 
 export function PasswordResetEmail({
-  username      = "User",
-  resetLink     = "https://yourapp.com/reset-password?token=xxx",
+  username = "User",
+  resetLink = "https://yourapp.com/reset-password?token=xxx",
   expiresInHours = 2,
-  appName       = "YourApp",
-  logoUrl       = "",
-  baseUrl       = process.env.APP_URL || "https://yourapp.com",
-}) {
-  return e(Html, { lang: "en" },
-    e(Head, null),
-    e(Preview, null, `Reset your ${appName} password — link expires in ${expiresInHours} hours`),
+  appName = "RootSpace",
+  logoUrl = "",
+  baseUrl = process.env.FRONTEND_URL || "https://yourapp.com",
+} = {}) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your ${appName} password</title>
+</head>
+<body style="background-color: #f4f4f5; font-family: 'Georgia', 'Times New Roman', serif; margin: 0; padding: 32px 0;">
+  <div style="background-color: #ffffff; border-radius: 8px; border: 1px solid #e4e4e7; max-width: 560px; margin: 0 auto; overflow: hidden;">
+    <div style="background-color: #18181b; padding: 24px 40px; text-align: center;">
+      ${logoUrl 
+        ? `<img src="${logoUrl}" width="40" height="40" alt="${appName}" style="border-radius: 8px;" />` 
+        : `<h1 style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.05em; margin: 0;">${appName}</h1>`
+      }
+    </div>
 
-    e(Body, { style: styles.body },
-      e(Container, { style: styles.container },
+    <div style="text-align: center; padding: 36px 40px 0;">
+      <span style="font-size: 48px; margin: 0; line-height: 1;">🔐</span>
+    </div>
 
-        // ── Header ──────────────────────────────────────────
-        e(Section, { style: styles.header },
-          logoUrl
-            ? e(Img, { src: logoUrl, width: "40", height: "40", alt: appName, style: styles.logo })
-            : e(Text, { style: styles.logoText }, appName)
-        ),
+    <div style="padding: 24px 40px 32px;">
+      <h2 style="color: #18181b; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 16px 0 20px; text-align: center;">Password Reset Request</h2>
+      <p style="color: #3f3f46; font-size: 16px; margin: 0 0 12px;">Hi ${username},</p>
+      <p style="color: #52525b; font-size: 15px; line-height: 1.65; margin: 0 0 28px;">
+        We received a request to reset the password for your ${appName} account. Click the button below to choose a new password.
+      </p>
 
-        // ── Lock icon ────────────────────────────────────────
-        e(Section, { style: styles.iconSection },
-          e(Text, { style: styles.lockIcon }, "🔐")
-        ),
+      <div style="text-align: center; margin: 0 0 20px;">
+        <a href="${resetLink}" style="background-color: #18181b; border-radius: 6px; color: #ffffff; display: inline-block; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; padding: 14px 36px; text-decoration: none;">Reset My Password</a>
+      </div>
 
-        // ── Main content ─────────────────────────────────────
-        e(Section, { style: styles.content },
-          e(Heading, { style: styles.heading }, "Password Reset Request"),
-          e(Text, { style: styles.greeting }, `Hi ${username},`),
-          e(Text, { style: styles.paragraph },
-            `We received a request to reset the password for your ${appName} account. `,
-            "Click the button below to choose a new password."
-          ),
+      <p style="color: #71717a; font-size: 13px; text-align: center; margin: 0 0 24px;">
+        This link will expire in <strong>${expiresInHours} hours</strong>.
+      </p>
 
-          // CTA button
-          e(Section, { style: styles.buttonSection },
-            e(Button, { href: resetLink, style: styles.button }, "Reset My Password")
-          ),
+      <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 0 0 20px;" />
 
-          e(Text, { style: styles.expiry },
-            "This link will expire in ",
-            e("strong", null, `${expiresInHours} hours`),
-            "."
-          ),
+      <p style="color: #3f3f46; font-size: 13px; font-weight: 600; margin: 0 0 4px;">Button not working?</p>
+      <p style="color: #71717a; font-size: 13px; margin: 0 0 8px;">Copy and paste the URL below into your browser:</p>
+      <a href="${resetLink}" style="color: #2563eb; font-size: 12px; word-break: break-all; display: block; margin-bottom: 20px;">${resetLink}</a>
 
-          e(Hr, { style: styles.divider }),
+      <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 0 0 20px;" />
 
-          // Fallback link
-          e(Text, { style: styles.fallbackTitle }, "Button not working?"),
-          e(Text, { style: styles.fallbackText }, "Copy and paste the URL below into your browser:"),
-          e(Link, { href: resetLink, style: styles.fallbackLink }, resetLink),
+      <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-radius: 6px; padding: 14px 16px;">
+        <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0;">
+          🛡️ If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged. Never share this link with anyone.
+        </p>
+      </div>
+    </div>
 
-          e(Hr, { style: styles.divider }),
-
-          // Security note
-          e(Section, { style: styles.securityBox },
-            e(Text, { style: styles.securityText },
-              "🛡️  If you didn't request a password reset, you can safely ignore this email. ",
-              "Your password will remain unchanged. Never share this link with anyone."
-            )
-          )
-        ),
-
-        // ── Footer ───────────────────────────────────────────
-        e(Section, { style: styles.footer },
-          e(Text, { style: styles.footerText },
-            `© ${new Date().getFullYear()} ${appName}. All rights reserved.`
-          ),
-          e(Text, { style: styles.footerLinks },
-            e(Link, { href: `${baseUrl}/help`,    style: styles.footerLink }, "Help Center"),
-            " · ",
-            e(Link, { href: `${baseUrl}/privacy`, style: styles.footerLink }, "Privacy Policy"),
-            " · ",
-            e(Link, { href: `${baseUrl}/terms`,   style: styles.footerLink }, "Terms of Service")
-          )
-        )
-
-      )
-    )
-  );
+    <div style="background-color: #fafafa; border-top: 1px solid #e4e4e7; padding: 20px 40px; text-align: center;">
+      <p style="color: #a1a1aa; font-size: 12px; margin: 0 0 6px;">&copy; ${new Date().getFullYear()} ${appName}. All rights reserved.</p>
+      <p style="color: #a1a1aa; font-size: 12px; margin: 0;">
+        <a href="${baseUrl}/help" style="color: #71717a; text-decoration: underline;">Help Center</a> &middot;
+        <a href="${baseUrl}/privacy" style="color: #71717a; text-decoration: underline;">Privacy Policy</a> &middot;
+        <a href="${baseUrl}/terms" style="color: #71717a; text-decoration: underline;">Terms of Service</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 export default PasswordResetEmail;
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const styles = {
-  body: {
-    backgroundColor: "#f4f4f5",
-    fontFamily: "'Georgia', 'Times New Roman', serif",
-    margin: 0,
-    padding: "32px 0",
-  },
-  container: {
-    backgroundColor: "#ffffff",
-    borderRadius: "8px",
-    border: "1px solid #e4e4e7",
-    maxWidth: "560px",
-    margin: "0 auto",
-    overflow: "hidden",
-  },
-  header: {
-    backgroundColor: "#18181b",
-    padding: "24px 40px",
-    textAlign: "center",
-  },
-  logo: { borderRadius: "8px" },
-  logoText: {
-    color: "#ffffff",
-    fontSize: "20px",
-    fontWeight: "700",
-    letterSpacing: "0.05em",
-    margin: 0,
-  },
-  iconSection: {
-    textAlign: "center",
-    padding: "36px 40px 0",
-  },
-  lockIcon: { fontSize: "48px", margin: 0, lineHeight: 1 },
-  content: { padding: "24px 40px 32px" },
-  heading: {
-    color: "#18181b",
-    fontSize: "24px",
-    fontWeight: "700",
-    letterSpacing: "-0.02em",
-    margin: "16px 0 20px",
-    textAlign: "center",
-  },
-  greeting:  { color: "#3f3f46", fontSize: "16px", margin: "0 0 12px" },
-  paragraph: { color: "#52525b", fontSize: "15px", lineHeight: "1.65", margin: "0 0 28px" },
-  buttonSection: { textAlign: "center", margin: "0 0 20px" },
-  button: {
-    backgroundColor: "#18181b",
-    borderRadius: "6px",
-    color: "#ffffff",
-    display: "inline-block",
-    fontSize: "15px",
-    fontWeight: "600",
-    letterSpacing: "0.02em",
-    padding: "14px 36px",
-    textDecoration: "none",
-  },
-  expiry: { color: "#71717a", fontSize: "13px", textAlign: "center", margin: "0 0 24px" },
-  divider: { borderColor: "#e4e4e7", borderTopWidth: "1px", margin: "0 0 20px" },
-  fallbackTitle: { color: "#3f3f46", fontSize: "13px", fontWeight: "600", margin: "0 0 4px" },
-  fallbackText:  { color: "#71717a", fontSize: "13px", margin: "0 0 8px" },
-  fallbackLink: {
-    color: "#2563eb",
-    fontSize: "12px",
-    wordBreak: "break-all",
-    display: "block",
-    marginBottom: "20px",
-  },
-  securityBox: {
-    backgroundColor: "#fafafa",
-    border: "1px solid #e4e4e7",
-    borderRadius: "6px",
-    padding: "14px 16px",
-  },
-  securityText: { color: "#71717a", fontSize: "13px", lineHeight: "1.6", margin: 0 },
-  footer: {
-    backgroundColor: "#fafafa",
-    borderTop: "1px solid #e4e4e7",
-    padding: "20px 40px",
-    textAlign: "center",
-  },
-  footerText:  { color: "#a1a1aa", fontSize: "12px", margin: "0 0 6px" },
-  footerLinks: { color: "#a1a1aa", fontSize: "12px", margin: 0 },
-  footerLink:  { color: "#71717a", textDecoration: "underline" },
-};

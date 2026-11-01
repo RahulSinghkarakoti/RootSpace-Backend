@@ -14,7 +14,10 @@ RUN npm install --ignore-scripts
 # 4. Copy remaining source code (including Prisma schema, config, and test files)
 COPY . .
 
-# 5. Create logs directory
+# 5. Generate Prisma Client
+RUN npx prisma generate
+
+# 6. Create logs directory
 RUN mkdir -p logs
 
 EXPOSE 5000

@@ -1,12 +1,12 @@
 // src/app.js
 import 'dotenv/config';
 import 'express-async-errors';// patches async route errors into express error handler
-import express from 'express'
-import helmet from 'helmet'
-import compression from 'compression'
-import cookieParser from 'cookie-parser'
-import passport from 'passport'
-import cors from 'cors' 
+import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
+import cors from 'cors'; 
 
 
 import logger from './utils/logger.js';
@@ -40,7 +40,7 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
-  })
+  }),
 );
 
 // ── Body parsing 
@@ -104,6 +104,8 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 process.on('uncaughtException',  (err) => { logger.error('Uncaught exception:', err);  process.exit(1); });
 process.on('unhandledRejection', (err) => { logger.error('Unhandled rejection:', err); process.exit(1); });
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}
 
-export  default app; // for testing
+export default app; // for testing

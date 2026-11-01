@@ -31,8 +31,8 @@ export default () => {
           logger.error('Google OAuth strategy error:', err);
           done(err);
         }
-      }
-    )
+      },
+    ),
   );
 
   // We use JWT everywhere; session-less Passport setup

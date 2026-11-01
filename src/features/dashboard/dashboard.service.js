@@ -119,40 +119,87 @@ const getRecentActivities = async (userId, limit = 20) => {
     return [];
   }
 
-  // Get recent audit logs for these trees
-  const activities = await prisma.auditLog.findMany({
-    where: {
-      userId: userId,
-      OR: [
-        { entity: "Tree", entityId: { in: treeIds.map((id) => String(id)) } },
-        { entity: "Person" },
-        { entity: "Media" },
-        { entity: "Relation" },
-      ],
-    },
-    select: {
-      id: true,
-      action: true,
-      entity: true,
-      entityId: true,
-      createdAt: true,
-      metadata: true,
-      user: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
+  // Query real domain activities (persons, media) plus any audit logs
+  const [recentPersons, recentMedia, auditLogs] = await Promise.all([
+    prisma.person.findMany({
+      where: { treeId: { in: treeIds } },
+      select: {
+        id: true,
+        fullName: true,
+        treeId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    }),
+    prisma.media.findMany({
+      where: { treeId: { in: treeIds } },
+      select: {
+        id: true,
+        caption: true,
+        url: true,
+        type: true,
+        treeId: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        userId: userId,
+        OR: [
+          { entity: "Tree", entityId: { in: treeIds.map((id) => String(id)) } },
+          { entity: "Person" },
+          { entity: "Media" },
+          { entity: "Relation" },
+        ],
+      },
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        entityId: true,
+        createdAt: true,
+        metadata: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: limit,
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: limit,
+    }),
+  ]);
 
-  return activities;
+  const personActivities = recentPersons.map((p) => ({
+    id: `person-${p.id}`,
+    action: "PERSON_ADDED",
+    entity: "Person",
+    entityId: p.id,
+    createdAt: p.createdAt,
+    metadata: { fullName: p.fullName, treeId: p.treeId },
+  }));
+
+  const mediaActivities = recentMedia.map((m) => ({
+    id: `media-${m.id}`,
+    action: "MEDIA_UPLOADED",
+    entity: "Media",
+    entityId: m.id,
+    createdAt: m.createdAt,
+    metadata: { type: m.type, caption: m.caption, treeId: m.treeId },
+  }));
+
+  return [...auditLogs, ...personActivities, ...mediaActivities]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, limit);
 };
 
 /**
@@ -246,7 +293,7 @@ const getDashboardData = async (req) => {
   } catch (error) {
     throw new AppError(
       error.message || "Failed to fetch dashboard data",
-      500
+      500,
     );
   }
 };

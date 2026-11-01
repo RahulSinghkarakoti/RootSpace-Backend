@@ -1,5 +1,6 @@
-// src/validators/auth.validator.js
+// src/features/tree/tree.validator.js
 import Joi from "joi";
+import { createValidator } from "../../middleware/validate.js";
 
 const schemas = {
   createTree: Joi.object({
@@ -16,41 +17,16 @@ const schemas = {
   }).or("treeName", "type", "coverImage", "isPublic"),
   generateShareLink: Joi.object({
     permission: Joi.string().valid("VIEW_ONLY", "MEDIA_ONLY","ADD_PERSON","CONTRIBUTOR","EDITOR","FULL_ACCESS").required(),
-    personLimit:Joi.number().integer().min(1).optional().allow(null),
+    personLimit: Joi.number().integer().min(1).optional().allow(null),
     expiresAt: Joi.valid("3m", "6m","12m","never").optional().allow(null),
-  }) ,
+  }),
   updateShareLink: Joi.object({
     permission: Joi.string().valid("VIEW_ONLY", "MEDIA_ONLY","ADD_PERSON","CONTRIBUTOR","EDITOR","FULL_ACCESS").optional(),
-    personLimit:Joi.number().integer().min(1).optional().allow(null),
+    personLimit: Joi.number().integer().min(1).optional().allow(null),
     expiresAt: Joi.valid("3m", "6m","12m","never").optional().allow(null),
     isActive: Joi.bool().optional(),
   }).or("permission", "personLimit", "expiresAt", "isActive"),
 };
 
-/**
- * Middleware factory — validates req.body against named schema.
- */
-const treeValidate = (schemaName) => (req, res, next) => {
-  const schema = schemas[schemaName];
-  if (!schema) return next();
-
-  const { error, value } = schema.validate(req.body, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-
-  if (error) {
-    const errors = error.details.map((d) => ({
-      field: d.path.join("."),
-      message: d.message,
-    }));
-    return res
-      .status(400)
-      .json({ success: false, message: "Validation failed", errors });
-  }
-
-  req.body = value; // use sanitised values
-  next();
-};
-
-export { treeValidate };
+export const treeValidate = createValidator(schemas);
+export const validate = treeValidate;
